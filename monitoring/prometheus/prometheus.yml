@@ -1,0 +1,43 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  - job_name: node-vm2
+    static_configs:
+      - targets:
+          - 192.168.163.131:9100
+        labels:
+          host: workload-vm2
+          environment: lab
+
+  - job_name: blackbox-exporter
+    static_configs:
+      - targets:
+          - blackbox:9115
+
+  - job_name: http-vm2
+    metrics_path: /probe
+    params:
+      module:
+        - http_workload
+    static_configs:
+      - targets:
+          - http://192.168.163.131:8080/health
+        labels:
+          host: workload-vm2
+          service: moni-nginx
+          environment: lab
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
