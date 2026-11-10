@@ -1,0 +1,15 @@
+groups:
+  - name: service_availability
+    rules:
+      - alert: ServiceHttpDown
+        expr: |
+          (probe_success{job="http-vm2"} == 0)
+          and on(job, instance)
+          (up{job="http-vm2"} == 1)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Endpoint HTTP trên VM2 không đạt kiểm tra"
+          description: "{{ $labels.instance }} thất bại liên tục ít nhất 1 phút; Prometheus vẫn thu được kết quả probe."
+          action: "Kiểm tra Nginx, log container, cổng 8080 và đường mạng từ VM1 đến VM2."
