@@ -5,13 +5,19 @@ services:
     image: prom/prometheus:v3.5.0
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "${MONITORING_BIND_IP:-0.0.0.0}:${PROMETHEUS_PORT:-9090}:9090"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=7d
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - type: bind
+        source: ../.runtime/prometheus/targets
+        target: /etc/prometheus/targets
+        read_only: true
+        bind:
+          create_host_path: false
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
 
@@ -29,7 +35,7 @@ services:
     depends_on:
       - prometheus
     ports:
-      - "3000:3000"
+      - "${MONITORING_BIND_IP:-0.0.0.0}:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"

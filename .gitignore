@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -17,6 +17,13 @@ data/
 prometheus-data/
 grafana-data/
 alertmanager-data/
+.runtime/
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
 
 # Logs and temporary files
 *.log
