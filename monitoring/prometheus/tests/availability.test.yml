@@ -1,0 +1,51 @@
+rule_files:
+  - ../rules/availability.yml
+evaluation_interval: 15s
+tests:
+  - name: One failed host does not mark the other host down
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="http",instance="http://alpha/health",host="alpha",environment="lab",service="moni-nginx"}'
+        values: '0+0x12'
+      - series: 'up{job="http",instance="http://alpha/health",host="alpha",environment="lab",service="moni-nginx"}'
+        values: '1+0x12'
+      - series: 'probe_success{job="http",instance="http://beta/health",host="beta",environment="lab",service="moni-nginx"}'
+        values: '1+0x12'
+      - series: 'up{job="http",instance="http://beta/health",host="beta",environment="lab",service="moni-nginx"}'
+        values: '1+0x12'
+    promql_expr_test:
+      - expr: 'count by(host) (ALERTS{alertname="ServiceHttpDown",alertstate="firing"})'
+        eval_time: 30s
+        exp_samples: []
+      - expr: 'count by(host) (ALERTS{alertname="ServiceHttpDown",alertstate="firing"})'
+        eval_time: 2m
+        exp_samples:
+          - labels: '{host="alpha"}'
+            value: 1
+  - name: Scrape failure is not an HTTP result
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="http",instance="http://alpha/health",host="alpha"}'
+        values: '0+0x12'
+      - series: 'up{job="http",instance="http://alpha/health",host="alpha"}'
+        values: '0+0x12'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="ServiceHttpDown",alertstate="firing"}'
+        eval_time: 2m
+        exp_samples: []
+  - name: A fresh successful probe clears the alert
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="http",instance="http://alpha/health",host="alpha"}'
+        values: '0+0x8 1+0x8'
+      - series: 'up{job="http",instance="http://alpha/health",host="alpha"}'
+        values: '1+0x18'
+    promql_expr_test:
+      - expr: 'count by(host) (ALERTS{alertname="ServiceHttpDown",alertstate="firing"})'
+        eval_time: 1m
+        exp_samples:
+          - labels: '{host="alpha"}'
+            value: 1
+      - expr: 'ALERTS{alertname="ServiceHttpDown",alertstate="firing"}'
+        eval_time: 3m
+        exp_samples: []

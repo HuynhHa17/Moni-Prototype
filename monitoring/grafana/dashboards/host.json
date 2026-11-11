@@ -1,13 +1,13 @@
 {
   "uid": "moni-vm2",
-  "title": "VM2 — Host và HTTP",
-  "description": "Giám sát tài nguyên VM2 và phép kiểm tra HTTP /health từ VM1. Giá trị -1 biểu thị chưa xác định khi thiếu dữ liệu kiểm tra.",
+  "title": "Host — tài nguyên và HTTP",
+  "description": "Chọn host để xem tài nguyên, HTTP và đường thu thập. Thiếu dữ liệu là chưa xác định; probe_success khác up. UID giữ để tương thích URL cũ.",
   "tags": [
     "moni",
-    "vm2"
+    "host"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "timezone": "browser",
   "refresh": "15s",
   "time": {
@@ -17,7 +17,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "HTTP VM2 — kết quả kiểm tra /health",
+      "title": "HTTP host — kết quả kiểm tra /health",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -69,7 +69,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(probe_success{job=\"http-vm2\"} and on(job, instance) (up{job=\"http-vm2\"} == 1)) or on() vector(-1)",
+          "expr": "(probe_success{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1)) or on() vector(-1)",
           "legendFormat": "{{instance}}",
           "instant": true,
           "range": false
@@ -78,7 +78,7 @@
     },
     {
       "id": 2,
-      "title": "Thu thập tài nguyên VM2",
+      "title": "Thu thập tài nguyên host",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -130,7 +130,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "up{job=\"node-vm2\"} or on() vector(-1)",
+          "expr": "up{job=\"node\",host=\"$host\"} or on() vector(-1)",
           "legendFormat": "{{instance}}",
           "instant": true,
           "range": false
@@ -191,7 +191,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "up{job=\"http-vm2\"} or on() vector(-1)",
+          "expr": "up{job=\"http\",host=\"$host\"} or on() vector(-1)",
           "legendFormat": "{{instance}}",
           "instant": true,
           "range": false
@@ -239,7 +239,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{job=\"node-vm2\",mode=\"idle\"}[5m])))) and on(instance) (up{job=\"node-vm2\"} == 1)",
+          "expr": "(100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{job=\"node\",host=\"$host\",mode=\"idle\"}[5m])))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{instance}}",
           "instant": false,
           "range": true
@@ -287,7 +287,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(100 * (1 - node_memory_MemAvailable_bytes{job=\"node-vm2\"} / node_memory_MemTotal_bytes{job=\"node-vm2\"})) and on(instance) (up{job=\"node-vm2\"} == 1)",
+          "expr": "(100 * (1 - node_memory_MemAvailable_bytes{job=\"node\",host=\"$host\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"$host\"})) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{instance}}",
           "instant": false,
           "range": true
@@ -335,7 +335,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(100 * (1 - node_filesystem_avail_bytes{job=\"node-vm2\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node-vm2\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(instance) (up{job=\"node-vm2\"} == 1)",
+          "expr": "(100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{instance}} — {{mountpoint}}",
           "instant": false,
           "range": true
@@ -382,8 +382,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "probe_duration_seconds{job=\"http-vm2\"} and on(job, instance) (up{job=\"http-vm2\"} == 1) and on(job, instance) (probe_success{job=\"http-vm2\"} == 1)",
-          "legendFormat": "HTTP VM2",
+          "expr": "probe_duration_seconds{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1) and on(job, instance) (probe_success{job=\"http\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}} — HTTP",
           "instant": false,
           "range": true
         }
@@ -443,12 +443,35 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(probe_success{job=\"http-vm2\"} and on(job, instance) (up{job=\"http-vm2\"} == 1)) or on() vector(-1)",
-          "legendFormat": "HTTP VM2",
+          "expr": "(probe_success{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1)) or on() vector(-1)",
+          "legendFormat": "{{host}} — HTTP",
           "instant": false,
           "range": true
         }
       ]
     }
-  ]
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"node\"}, host)",
+        "query": {
+          "query": "label_values(up{job=\"node\"}, host)",
+          "refId": "HostVariable"
+        },
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      }
+    ]
+  }
 }
