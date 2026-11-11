@@ -1,6 +1,6 @@
 # Kiến trúc và luồng dữ liệu
 
-Đây là **thiết kế đích** theo bản điều chỉnh 12/11/2026. README và validation
+Đây là **thiết kế đích** theo bản điều chỉnh 12/11/2026. Tài liệu validation
 ghi thành phần thực sự có trong cấu hình. M1 thêm cảnh báo/lịch sử, M2 thêm
 cAdvisor/podinfo, M3 thêm VM3/quan sát VM1/reachability/dự báo. Chưa coi các
 khối đó là đang chạy. Bộ 5 sơ đồ `.drawio`/SVG do DES-01–05 tiếp tục thực hiện.

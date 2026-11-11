@@ -1,7 +1,7 @@
 # Quyết định kiến trúc
 
 Cập nhật ngày 12/11/2026 theo mô tả điều chỉnh của nhóm. Quyết định thiết kế
-không đồng nghĩa đã triển khai trên VM; xem README và validation.
+không đồng nghĩa đã triển khai trên VM; xem docs/validation.md.
 
 ## ADR-01 — Hai VM cá nhân, ba VM tích hợp ở M3
 
