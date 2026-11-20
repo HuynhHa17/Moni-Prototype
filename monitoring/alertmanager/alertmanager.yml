@@ -1,9 +1,12 @@
 route:
-  receiver: bootstrap
+  receiver: history-webhook
   group_by: ['alertname', 'host', 'environment']
   group_wait: 30s
   group_interval: 2m
   repeat_interval: 15m
 
 receivers:
-  - name: bootstrap
+  - name: history-webhook
+    webhook_configs:
+      - url: http://webhook:8080/alerts
+        send_resolved: true
