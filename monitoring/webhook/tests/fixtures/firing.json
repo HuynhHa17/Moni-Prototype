@@ -1,0 +1,50 @@
+{
+  "receiver": "bootstrap",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHttpDown",
+        "environment": "lab",
+        "host": "workload-vm2",
+        "instance": "http://<IP-LAB>:8080/health",
+        "job": "http",
+        "service": "moni-nginx",
+        "severity": "critical"
+      },
+      "annotations": {
+        "action": "Kiểm tra Nginx, log container, cổng trong URL instance và đường mạng từ VM1 tới host đích.",
+        "description": "http://<IP-LAB>:8080/health thất bại liên tục ít nhất 1 phút; Prometheus vẫn thu được kết quả probe.",
+        "summary": "Endpoint HTTP trên workload-vm2 không đạt kiểm tra"
+      },
+      "startsAt": "2026-11-13T11:17:00.534Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://<container>:9090/graph",
+      "fingerprint": "ffba5f3489ed0334"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "ServiceHttpDown",
+    "environment": "lab",
+    "host": "workload-vm2"
+  },
+  "commonLabels": {
+    "alertname": "ServiceHttpDown",
+    "environment": "lab",
+    "host": "workload-vm2",
+    "instance": "http://<IP-LAB>:8080/health",
+    "job": "http",
+    "service": "moni-nginx",
+    "severity": "critical"
+  },
+  "commonAnnotations": {
+    "action": "Kiểm tra Nginx, log container, cổng trong URL instance và đường mạng từ VM1 tới host đích.",
+    "description": "http://<IP-LAB>:8080/health thất bại liên tục ít nhất 1 phút; Prometheus vẫn thu được kết quả probe.",
+    "summary": "Endpoint HTTP trên workload-vm2 không đạt kiểm tra"
+  },
+  "externalURL": "http://<container>:9093",
+  "version": "4",
+  "groupKey": "{}:{alertname=\"ServiceHttpDown\", environment=\"lab\", host=\"workload-vm2\"}",
+  "truncatedAlerts": 0
+}

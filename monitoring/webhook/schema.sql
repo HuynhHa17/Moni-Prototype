@@ -1,6 +1,3 @@
--- Schema lịch sử cảnh báo (HIS-02). Thiết kế: docs/history-design.md mục 5.
--- Thời gian lưu dạng chuỗi ISO 8601 UTC, ví dụ 2026-11-13T11:17:00.534Z.
-
 PRAGMA user_version = 1;
 
 CREATE TABLE IF NOT EXISTS episodes (
