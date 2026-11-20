@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import store
 
 ZERO_TIME = "0001-01-01T00:00:00Z"
 VALID_STATUS = ("firing", "resolved")
@@ -107,13 +110,24 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(400, {"error": str(exc)})
             return
 
-        for a in alerts:
+        try:
+            conn = store.connect(self.server.db_path)
+            try:
+                outcomes = store.record_alerts(conn, group_key, alerts)
+            finally:
+                conn.close()
+        except sqlite3.Error as exc:
+            log.error("không ghi được CSDL: %s", exc)
+            self._reply(500, {"error": "không ghi được CSDL"})
+            return
+
+        for a, outcome in zip(alerts, outcomes):
             log.info(
-                "nhận alert status=%s alertname=%s host=%s fingerprint=%s startsAt=%s endsAt=%s",
-                a["status"], a["alertname"], a["host"], a["fingerprint"],
+                "lưu alert outcome=%s status=%s alertname=%s host=%s fingerprint=%s startsAt=%s endsAt=%s",
+                outcome, a["status"], a["alertname"], a["host"], a["fingerprint"],
                 a["starts_at"], a["ends_at"],
             )
-        self._reply(200, {"accepted": len(alerts), "groupKey": group_key})
+        self._reply(200, {"accepted": len(alerts), "outcomes": outcomes})
 
     def log_message(self, fmt, *args):
         log.debug("%s - %s", self.address_string(), fmt % args)
@@ -125,8 +139,11 @@ def main():
         format="%(asctime)s %(levelname)s %(message)s",
     )
     port = int(os.environ.get("WEBHOOK_PORT", "8080"))
+    db_path = os.environ.get("WEBHOOK_DB", "history.db")
+    store.connect(db_path).close()
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    log.info("webhook lắng nghe cổng %s, đường dẫn POST /alerts", port)
+    server.db_path = db_path
+    log.info("webhook lắng nghe cổng %s, đường dẫn POST /alerts, CSDL %s", port, db_path)
     server.serve_forever()
 
 
