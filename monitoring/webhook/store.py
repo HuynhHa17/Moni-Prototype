@@ -20,6 +20,16 @@ def connect(path):
     return conn
 
 
+def check(path):
+    """Kiểm tra mở được CSDL và lấy được khóa ghi; không ghi dữ liệu nào."""
+    conn = connect(path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("ROLLBACK")
+    finally:
+        conn.close()
+
+
 def _record_one(conn, alert, group_key, received_at):
     """Ghi một alert theo bảng quy tắc mục 5.3, trả về outcome."""
     row = conn.execute(
