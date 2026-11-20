@@ -56,7 +56,18 @@ services:
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
+
+  webhook:
+    build: ./webhook
+    image: moni-webhook:local
+    restart: unless-stopped
+    environment:
+      WEBHOOK_DB: /data/history.db
+    volumes:
+      - webhook-data:/data
+
 volumes:
   prometheus-data:
   grafana-data:
   alertmanager-data:
+  webhook-data:
