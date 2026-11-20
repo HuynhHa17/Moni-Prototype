@@ -165,3 +165,68 @@ Thời gian lưu theo UTC như payload; CLI chuyển sang Asia/Saigon khi hiển
 
 - HIS-02 schema SQLite, HIS-03→HIS-05 Webhook, HIS-07 CLI, DES-05 ERD.
 - ALT-07 cấu hình route, ALT-09 receiver Webhook thật.
+
+## 8. Schema SQLite (HIS-02)
+
+File `monitoring/webhook/schema.sql`, phiên bản `PRAGMA user_version = 1`.
+Thời gian lưu dạng chuỗi ISO 8601 UTC giữ nguyên như payload; chuỗi này
+sắp xếp theo thứ tự chữ cũng là thứ tự thời gian.
+
+### 8.1. Bảng `episodes`: một dòng cho mỗi lần phát sinh
+
+| Cột | Kiểu | Ràng buộc | Nguồn / ý nghĩa |
+|---|---|---|---|
+| `id` | INTEGER | khóa chính | Số tự tăng để `events` tham chiếu |
+| `fingerprint` | TEXT | NOT NULL | `alerts[].fingerprint` |
+| `starts_at` | TEXT | NOT NULL | `alerts[].startsAt` (giờ nguồn, lúc firing) |
+| `alertname`, `host`, `service`, `severity` | TEXT | `alertname` NOT NULL | Tách từ `labels` để CLI lọc theo đối tượng và loại cảnh báo |
+| `labels_json` | TEXT | NOT NULL | Toàn bộ `labels` gốc |
+| `annotations_json` | TEXT | | `summary`, `description`, `action` |
+| `status` | TEXT | `firing` hoặc `resolved` | Trạng thái hiện biết |
+| `ends_at` | TEXT | được NULL | `endsAt` của bản resolved; NULL khi chưa có resolved, kể cả khi payload gửi `0001-01-01T00:00:00Z` |
+| `missing_firing` | INTEGER | 0 hoặc 1 | 1 khi nhận resolved mà chưa từng có firing |
+| `first_received_at`, `last_received_at` | TEXT | NOT NULL | Giờ Webhook nhận thư đầu và thư cuối của episode |
+
+**Khóa episode:** `UNIQUE (fingerprint, starts_at)`. Notification lặp không thể
+tạo dòng thứ hai kể cả khi code Webhook có lỗi.
+
+### 8.2. Bảng `events`: một dòng cho mỗi alert trong mỗi notification nhận được
+
+| Cột | Kiểu | Ràng buộc | Ý nghĩa |
+|---|---|---|---|
+| `id` | INTEGER | khóa chính | |
+| `episode_id` | INTEGER | NOT NULL, tham chiếu `episodes(id)` | Episode mà alert thuộc về |
+| `status` | TEXT | `firing` hoặc `resolved` | Nguyên văn trong notification |
+| `ends_at` | TEXT | được NULL | Nguyên văn trong notification (rỗng → NULL) |
+| `received_at` | TEXT | NOT NULL | Giờ Webhook nhận |
+| `group_key` | TEXT | | `groupKey` của notification |
+| `outcome` | TEXT | một trong 6 giá trị dưới | Cách Webhook đã xử lý alert này |
+
+| `outcome` | Ứng với quy tắc (mục 5.3) |
+|---|---|
+| `new` | Firing, khóa chưa có → tạo episode |
+| `repeat` | Firing, khóa đang firing → notification lặp |
+| `resolve` | Resolved, khóa đã có → đóng episode |
+| `resolved_repeat` | Resolved lặp |
+| `resolved_without_firing` | Resolved, khóa chưa có → tạo episode, `missing_firing = 1` |
+| `late_firing` | Firing đến sau khi khóa đã resolved |
+
+Chỉ mục: `events(episode_id)`, `episodes(status)`, `episodes(host, starts_at)`
+phục vụ CLI xem/xuất lịch sử (HIS-07).
+
+### 8.3. Lưu ý khi dùng
+
+- SQLite mặc định **tắt** kiểm tra khóa ngoại; Webhook phải chạy
+  `PRAGMA foreign_keys = ON` ở mỗi kết nối.
+- Không có cột người xử lý hay phân công (ngoài phạm vi, mục 6).
+
+### 8.4. Kiểm chứng ràng buộc (20/11/2026, VM1, CSDL tạm `/tmp/his02-test.db`)
+
+| Thử | Kết quả thực tế |
+|---|---|
+| Tạo schema | Bảng `episodes`, `events`; `user_version = 1` |
+| Chèn episode B (`ffba5f3489ed0334`, `2026-11-13T11:17:00.534Z`) | Thành công, `ends_at` NULL |
+| Chèn lại cùng khóa (giả lập thư nhắc lại) | `UNIQUE constraint failed: episodes.fingerprint, episodes.starts_at` |
+| Cùng fingerprint, `starts_at` khác (giả lập tái phát) | Thành công, 2 episode |
+| Sự kiện trỏ tới episode 999 không tồn tại | `FOREIGN KEY constraint failed` |
+| `status = 'ok'` | `CHECK constraint failed: status IN ('firing', 'resolved')` |
