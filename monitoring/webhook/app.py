@@ -10,6 +10,8 @@ ZERO_TIME = "0001-01-01T00:00:00Z"
 VALID_STATUS = ("firing", "resolved")
 MAX_BODY = 1024 * 1024  # 1 MiB, đủ cho một notification
 
+HEALTH_SCOPE = "tiến trình webhook chạy và CSDL mở được, lấy được khóa ghi; không kiểm tra Alertmanager hay Prometheus"
+
 log = logging.getLogger("webhook")
 
 
@@ -92,6 +94,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_GET(self):
+        if self.path != "/health":
+            self._reply(404, {"error": "không có đường dẫn này"})
+            return
+        try:
+            store.check(self.server.db_path)
+        except sqlite3.Error as exc:
+            log.error("health: CSDL lỗi: %s", exc)
+            self._reply(503, {"status": "error", "db": "không mở hoặc không ghi được", "scope": HEALTH_SCOPE})
+            return
+        self._reply(200, {"status": "ok", "db": "ok", "scope": HEALTH_SCOPE})
 
     def do_POST(self):
         if self.path != "/alerts":
