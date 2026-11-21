@@ -87,3 +87,87 @@ tests:
       - expr: 'ALERTS{alertname="HostHighCpu",alertstate="firing"}'
         eval_time: 8m
         exp_samples: []
+
+  - name: Test filesystem above threshold fires only for its mountpoint
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '1000x20'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '50x20'
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/sda2",fstype="ext4",mountpoint="/"}'
+        values: '1000x20'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/sda2",fstype="ext4",mountpoint="/"}'
+        values: '600x20'
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '1000x20'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="tmpfs",fstype="tmpfs",mountpoint="/run"}'
+        values: '10x20'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FilesystemAlmostFull
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FilesystemAlmostFull
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: alpha:9100
+              host: alpha
+              device: /dev/loop0
+              fstype: ext4
+              mountpoint: /mnt/moni-disktest
+            exp_annotations:
+              summary: "Filesystem /mnt/moni-disktest trên alpha dùng trên 90%"
+              description: "/mnt/moni-disktest (/dev/loop0, ext4) đã dùng 95% theo dung lượng ứng dụng còn ghi được, liên tục ít nhất 2 phút. Chỉ ứng dụng ghi vào mount này mới có thể bị ảnh hưởng."
+              action: "Trên alpha chạy df -h /mnt/moni-disktest và du -xh --max-depth=1 /mnt/moni-disktest | sort -h | tail để tìm thư mục lớn; xác nhận mount đúng trước khi xóa dữ liệu."
+
+  - name: Filesystem below threshold does not fire
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '1000x20'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '150x20'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha"}'
+        values: '1x20'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="FilesystemAlmostFull"}'
+        eval_time: 4m
+        exp_samples: []
+
+  - name: Failed scrape is not evaluated as disk usage
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '1000x20'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '50x20'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha"}'
+        values: '0x20'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="FilesystemAlmostFull"}'
+        eval_time: 4m
+        exp_samples: []
+
+  - name: Freeing space resolves the alert
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_size_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '1000x32'
+      - series: 'node_filesystem_avail_bytes{job="node",instance="alpha:9100",host="alpha",device="/dev/loop0",fstype="ext4",mountpoint="/mnt/moni-disktest"}'
+        values: '50x16 990x16'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha"}'
+        values: '1x32'
+    promql_expr_test:
+      - expr: 'count by(mountpoint) (ALERTS{alertname="FilesystemAlmostFull",alertstate="firing"})'
+        eval_time: 3m
+        exp_samples:
+          - labels: '{mountpoint="/mnt/moni-disktest"}'
+            value: 1
+      - expr: 'ALERTS{alertname="FilesystemAlmostFull",alertstate="firing"}'
+        eval_time: 5m
+        exp_samples: []

@@ -16,3 +16,20 @@ groups:
           summary: "CPU trên {{ $labels.host }} vượt 85%"
           description: "CPU dùng {{ $value | printf \"%.0f\" }}% (trung bình 2 phút), trên 85% liên tục ít nhất 3 phút. Đây là quan sát tài nguyên, chưa phải bằng chứng dịch vụ lỗi."
           action: "Trên {{ $labels.host }} chạy top hoặc ps -eo pid,comm,%cpu --sort=-%cpu | head để tìm tiến trình chiếm CPU; đối chiếu panel HTTP trên dashboard Host."
+
+      - alert: FilesystemAlmostFull
+        expr: |
+          (
+            100 * (1 -
+              node_filesystem_avail_bytes{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"}
+              / (node_filesystem_size_bytes{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"} > 0)
+            ) > 90
+          )
+          and on(instance) (up{job="node"} == 1)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Filesystem {{ $labels.mountpoint }} trên {{ $labels.host }} dùng trên 90%"
+          description: "{{ $labels.mountpoint }} ({{ $labels.device }}, {{ $labels.fstype }}) đã dùng {{ $value | printf \"%.0f\" }}% theo dung lượng ứng dụng còn ghi được, liên tục ít nhất 2 phút. Chỉ ứng dụng ghi vào mount này mới có thể bị ảnh hưởng."
+          action: "Trên {{ $labels.host }} chạy df -h {{ $labels.mountpoint }} và du -xh --max-depth=1 {{ $labels.mountpoint }} | sort -h | tail để tìm thư mục lớn; xác nhận mount đúng trước khi xóa dữ liệu."
