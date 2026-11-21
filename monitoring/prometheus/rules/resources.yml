@@ -1,0 +1,18 @@
+groups:
+  - name: host_resources
+    rules:
+      - alert: HostHighCpu
+        expr: |
+          (
+            100 * (1 - avg by(instance, host, environment) (
+              rate(node_cpu_seconds_total{job="node", mode="idle"}[2m])
+            )) > 85
+          )
+          and on(instance) (up{job="node"} == 1)
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU trên {{ $labels.host }} vượt 85%"
+          description: "CPU dùng {{ $value | printf \"%.0f\" }}% (trung bình 2 phút), trên 85% liên tục ít nhất 3 phút. Đây là quan sát tài nguyên, chưa phải bằng chứng dịch vụ lỗi."
+          action: "Trên {{ $labels.host }} chạy top hoặc ps -eo pid,comm,%cpu --sort=-%cpu | head để tìm tiến trình chiếm CPU; đối chiếu panel HTTP trên dashboard Host."

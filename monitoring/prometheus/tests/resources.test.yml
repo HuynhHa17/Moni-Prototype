@@ -1,0 +1,89 @@
+rule_files:
+  - ../rules/resources.yml
+evaluation_interval: 15s
+tests:
+  - name: Sustained high CPU fires only on the busy host
+    interval: 15s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="0",mode="idle"}'
+        values: '0+0.75x40'
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="1",mode="idle"}'
+        values: '0+0.75x40'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '1x40'
+      - series: 'node_cpu_seconds_total{job="node",instance="beta:9100",host="beta",environment="lab",cpu="0",mode="idle"}'
+        values: '0+13.5x40'
+      - series: 'up{job="node",instance="beta:9100",host="beta",environment="lab"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HostHighCpu
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: HostHighCpu
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: alpha:9100
+              host: alpha
+              environment: lab
+            exp_annotations:
+              summary: "CPU trên alpha vượt 85%"
+              description: "CPU dùng 95% (trung bình 2 phút), trên 85% liên tục ít nhất 3 phút. Đây là quan sát tài nguyên, chưa phải bằng chứng dịch vụ lỗi."
+              action: "Trên alpha chạy top hoặc ps -eo pid,comm,%cpu --sort=-%cpu | head để tìm tiến trình chiếm CPU; đối chiếu panel HTTP trên dashboard Host."
+
+  - name: Short CPU spike does not fire
+    interval: 15s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="0",mode="idle"}'
+        values: '0+0.75x8 6+13.5x32'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '1x40'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="HostHighCpu",alertstate="firing"}'
+        eval_time: 4m
+        exp_samples: []
+      - expr: 'ALERTS{alertname="HostHighCpu",alertstate="firing"}'
+        eval_time: 6m
+        exp_samples: []
+
+  - name: CPU below threshold does not fire
+    interval: 15s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="0",mode="idle"}'
+        values: '0+3x40'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '1x40'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="HostHighCpu"}'
+        eval_time: 8m
+        exp_samples: []
+
+  - name: Failed scrape is not evaluated as CPU
+    interval: 15s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="0",mode="idle"}'
+        values: '0+0.75x40'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '0x40'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname="HostHighCpu"}'
+        eval_time: 8m
+        exp_samples: []
+
+  - name: CPU back under threshold resolves the alert
+    interval: 15s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node",instance="alpha:9100",host="alpha",environment="lab",cpu="0",mode="idle"}'
+        values: '0+0.75x24 18+13.5x24'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '1x48'
+    promql_expr_test:
+      - expr: 'count by(host) (ALERTS{alertname="HostHighCpu",alertstate="firing"})'
+        eval_time: 5m
+        exp_samples:
+          - labels: '{host="alpha"}'
+            value: 1
+      - expr: 'ALERTS{alertname="HostHighCpu",alertstate="firing"}'
+        eval_time: 8m
+        exp_samples: []
