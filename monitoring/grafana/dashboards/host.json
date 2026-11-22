@@ -7,7 +7,7 @@
     "host"
   ],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "timezone": "browser",
   "refresh": "15s",
   "time": {
@@ -461,9 +461,9 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(up{job=\"node\"}, host)",
+        "definition": "label_values(up, host)",
         "query": {
-          "query": "label_values(up{job=\"node\"}, host)",
+          "query": "label_values(up, host)",
           "refId": "HostVariable"
         },
         "refresh": 1,
