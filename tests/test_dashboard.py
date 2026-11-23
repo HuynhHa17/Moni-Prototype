@@ -48,6 +48,24 @@ class HostDashboardTests(unittest.TestCase):
         self.assertEqual(host_variable["definition"], "label_values(up, host)")
         self.assertEqual(host_variable["query"]["query"], "label_values(up, host)")
 
+    def test_network_panel_uses_rate_in_bits_and_excludes_virtual_interfaces(self):
+        panel = self.panels[9]
+        self.assertEqual(panel["fieldConfig"]["defaults"]["unit"], "bps")
+        expressions = [target["expr"] for target in panel["targets"]]
+        self.assertEqual(len(expressions), 2)
+        for metric, expression in zip(("receive", "transmit"), expressions):
+            self.assertIn(f"node_network_{metric}_bytes_total", expression)
+            self.assertIn("8 * rate(", expression)
+            self.assertIn('device!~"lo|veth.*|docker.*|br-.*|virbr.*"', expression)
+            self.assertIn('(up{job="node",host="$host"} == 1)', expression)
+
+    def test_uptime_uses_boot_time_not_up(self):
+        panel = self.panels[10]
+        expression = panel["targets"][0]["expr"]
+        self.assertTrue(expression.startswith("(time() - node_boot_time_seconds{"))
+        self.assertIn('(up{job="node",host="$host"} == 1)', expression)
+        self.assertEqual(panel["fieldConfig"]["defaults"]["noValue"], "CHƯA XÁC ĐỊNH")
+
 
 if __name__ == "__main__":
     unittest.main()
