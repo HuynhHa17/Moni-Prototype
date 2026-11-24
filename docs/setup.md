@@ -21,8 +21,10 @@ test -f .env || cp .env.example .env
 nano .env
 ```
 
-Điền `WORKLOAD_IP`, `WORKLOAD_HOST`, `WORKLOAD_HTTP_PORT` và `ENVIRONMENT`.
-VM1 dùng các biến này để sinh target; VM2 dùng HTTP port để publish Nginx.
+Điền `WORKLOAD_IP`, `WORKLOAD_HOST`, `WORKLOAD_HTTP_PORT`,
+`WORKLOAD_CADVISOR_PORT` và `ENVIRONMENT`. VM1 dùng các biến này để sinh
+target; VM2 dùng HTTP port để publish Nginx và cAdvisor port (mặc định 8081)
+để publish cAdvisor.
 Giữ `WORKLOAD_VM3_IP` rỗng cho lab hai VM. Điền IP/host/port của VM3 sau khi
 đã dựng VM3 ở lab tích hợp. Không điền địa chỉ VM của người khác.
 
@@ -47,6 +49,12 @@ không cần recreate. `expected.rules.yml` là inventory kỳ vọng cho cảnh
 `TargetMissing` (ALT-10); rule chỉ nạp lại khi Prometheus nhận SIGHUP:
 `docker compose -f monitoring/compose.yaml kill -s HUP prometheus`.
 
+`prometheus.yml` được bind mount như một file riêng. `git pull` hoặc
+`git apply` thay file bằng inode mới nên SIGHUP vẫn đọc nội dung cũ. Sau khi
+`prometheus.yml` thay đổi, tạo lại container (dữ liệu nằm trong volume):
+`docker compose -f monitoring/compose.yaml up -d --force-recreate prometheus`.
+Thư mục `rules/` và `targets/` được mount cả thư mục nên SIGHUP là đủ.
+
 ## VM2 — Workload
 
 ```bash
@@ -56,6 +64,12 @@ sudo docker compose --env-file .env -f workload/compose.yaml ps
 ```
 
 `config -q` kiểm tra Compose; `up -d` áp dụng stack; `ps` xem container.
+
+cAdvisor (`ghcr.io/google/cadvisor:0.55.1`) chạy `privileged` và mount chỉ
+đọc `/`, `/sys`, `/var/run`, `/var/lib/docker`, `/dev/disk` để đọc cgroup và
+thông tin container Docker; thêm `/dev/kmsg` để thấy sự kiện OOM. Quyền này
+đọc được mọi container trên host nên chỉ dùng trên VM lab. Port 8081 của VM2
+chỉ cần mở cho VM1.
 Không xóa named volume hoặc làm đầy phân vùng hệ thống để thử lỗi.
 
 ## VM1 — Monitoring

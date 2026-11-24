@@ -7,7 +7,7 @@
     "host"
   ],
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "timezone": "browser",
   "refresh": "15s",
   "time": {
@@ -556,6 +556,159 @@
           "refId": "A",
           "expr": "(time() - node_boot_time_seconds{job=\"node\",host=\"$host\"}) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{instance}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "CPU theo container (core)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "description": "rate(container_cpu_usage_seconds_total) theo tên container: số core CPU đang dùng (1 = một core đầy). Host có nproc core nên tổng tối đa bằng nproc. Container đã dừng không còn series nên đường của nó dừng, không kéo dài.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",host=\"$host\",name!=\"\"}[$__rate_interval])) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "RAM theo container (working set)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "description": "container_memory_working_set_bytes: bộ nhớ container đang dùng mà kernel không thu hồi ngay được; đây là con số giới hạn memory so sánh để OOM. Đơn vị byte.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(name) (container_memory_working_set_bytes{job=\"cadvisor\",host=\"$host\",name!=\"\"}) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Container cAdvisor thấy trong 60 giây gần nhất",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 7
+      },
+      "description": "Chỉ liệt kê container có container_last_seen trong 60 giây gần nhất và khi scrape cAdvisor thành công. Container đã dừng hoặc bị xóa sẽ biến khỏi bảng, không hiện như đang hoạt động.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "CHƯA XÁC ĐỊNH"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "renameByName": {
+              "name": "Container",
+              "image": "Image",
+              "container_label_com_docker_compose_service": "Compose service"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(name, image, container_label_com_docker_compose_service) (container_last_seen{job=\"cadvisor\",host=\"$host\",name!=\"\"} > time() - 60) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "format": "table",
           "instant": true,
           "range": false
         }
