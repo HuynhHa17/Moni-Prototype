@@ -1,0 +1,99 @@
+rule_files:
+  - ../rules/observability.yml
+  - ../rules/availability.yml
+evaluation_interval: 15s
+tests:
+  - name: Unreachable node exporter fires ExporterDown only for that target
+    interval: 15s
+    input_series:
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '0x12'
+      - series: 'up{job="node",instance="beta:9100",host="beta",environment="lab"}'
+        values: '1x12'
+      - series: 'up{job="blackbox-exporter",instance="blackbox:9115"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 30s
+        alertname: ExporterDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: ExporterDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: alpha:9100
+              host: alpha
+              environment: lab
+            exp_annotations:
+              summary: "Prometheus không thu thập được node tại alpha:9100"
+              description: "up = 0 liên tục ít nhất 1 phút. Số liệu của target này không còn cập nhật nên trạng thái là chưa xác định; không phải bằng chứng host đã tắt hay dịch vụ vẫn ổn."
+              action: "Kiểm tra container exporter (docker compose ps), cổng trong instance và đường mạng từ VM1; xem panel Thu thập trên dashboard Host."
+
+  - name: Failed probe scrape is unknown, not HTTP down
+    interval: 15s
+    input_series:
+      - series: 'up{job="http",instance="http://alpha:8080/health",host="alpha",environment="lab"}'
+        values: '0x12'
+      - series: 'probe_success{job="http",instance="http://alpha:8080/health",host="alpha",environment="lab"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ProbeScrapeFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: http
+              instance: http://alpha:8080/health
+              host: alpha
+              environment: lab
+            exp_annotations:
+              summary: "Không lấy được kết quả kiểm tra HTTP http://alpha:8080/health trên alpha"
+              description: "Prometheus không scrape được Blackbox cho probe này liên tục ít nhất 1 phút. Trạng thái HTTP là chưa xác định, không phải HTTP lỗi hay HTTP đạt; ServiceHttpDown không đánh giá khi mất probe."
+              action: "Kiểm tra container blackbox trên VM1 và log của nó; nếu ExporterDown của blackbox-exporter cũng firing thì xử lý Blackbox trước."
+      - eval_time: 2m
+        alertname: ServiceHttpDown
+        exp_alerts: []
+
+  - name: Target that disappears from discovery fires TargetMissing
+    interval: 15s
+    input_series:
+      - series: 'moni:target_expected{job="node",host="alpha",environment="lab"}'
+        values: '1x20'
+      - series: 'moni:target_expected{job="node",host="beta",environment="lab"}'
+        values: '1x20'
+      - series: 'up{job="node",instance="alpha:9100",host="alpha",environment="lab"}'
+        values: '1x4 stale'
+      - series: 'up{job="node",instance="beta:9100",host="beta",environment="lab"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TargetMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: TargetMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              host: alpha
+              environment: lab
+            exp_annotations:
+              summary: "Target node của alpha không còn trong Prometheus"
+              description: "Inventory kỳ vọng có target này nhưng Prometheus không còn series up (mất khỏi service discovery hoặc bị relabel loại). Không có dữ liệu để đánh giá; các cảnh báo khác của target có thể đã hết firing vì thiếu dữ liệu."
+              action: "Chạy lại scripts/render_targets.py, kiểm tra .runtime/prometheus/targets và trang Targets của Prometheus; ExporterDown không thay được cảnh báo này."
+      - eval_time: 5m
+        alertname: ExporterDown
+        exp_alerts: []
+
+  - name: Present targets do not fire coverage alerts
+    interval: 15s
+    input_series:
+      - series: 'moni:target_expected{job="http",host="alpha",environment="lab"}'
+        values: '1x20'
+      - series: 'up{job="http",instance="http://alpha:8080/health",host="alpha",environment="lab"}'
+        values: '1x20'
+    promql_expr_test:
+      - expr: 'ALERTS{alertname=~"ExporterDown|ProbeScrapeFailed|TargetMissing"}'
+        eval_time: 5m
+        exp_samples: []

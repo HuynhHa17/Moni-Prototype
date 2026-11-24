@@ -39,10 +39,13 @@ không khởi tạo VM và không khởi chạy container:
 python3 scripts/render_targets.py
 ```
 
-Đầu ra: `.runtime/prometheus/targets/node.json` và `http.json`, ngoài Git.
-Script kiểm tra IP, port và host trùng trước khi thay file; thư mục này
-không chứa secret. Chạy lại sau khi đổi inventory. Khi config nền đã được
-nạp, file_sd đọc lại target theo chu kỳ 15 giây mà không cần recreate.
+Đầu ra: `.runtime/prometheus/targets/node.json`, `http.json` và
+`expected.rules.yml`, ngoài Git. Script kiểm tra IP, port và host trùng trước
+khi thay file; thư mục này không chứa secret. Chạy lại sau khi đổi inventory.
+Khi config nền đã được nạp, file_sd đọc lại target theo chu kỳ 15 giây mà
+không cần recreate. `expected.rules.yml` là inventory kỳ vọng cho cảnh báo
+`TargetMissing` (ALT-10); rule chỉ nạp lại khi Prometheus nhận SIGHUP:
+`docker compose -f monitoring/compose.yaml kill -s HUP prometheus`.
 
 ## VM2 — Workload
 
