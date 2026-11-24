@@ -8,7 +8,7 @@ Ngưỡng và `for` là giá trị khởi đầu cho lab, chốt lại ở BSL-0
 | ServiceHttpDown | critical | `probe_success == 0` và `up{job="http"} == 1` | 1m | host, service, instance |
 | HostHighCpu | warning | CPU host > 85% (trung bình 2 phút) | 3m | host, instance |
 | FilesystemAlmostFull | warning | `1 − avail/size` > 90% | 2m | host, mountpoint, device |
-| ExporterDown | warning | `up{job=~"node\|blackbox-exporter"} == 0` | 1m | job, instance, host |
+| ExporterDown | warning | `up{job=~"node\|cadvisor\|blackbox-exporter"} == 0` | 1m | job, instance, host |
 | ProbeScrapeFailed | warning | `up{job="http"} == 0` | 1m | host, instance |
 | TargetMissing | warning | target trong inventory không còn series `up` | 2m | job, host |
 

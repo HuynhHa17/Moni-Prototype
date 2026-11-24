@@ -27,12 +27,19 @@ class TargetRenderingTests(unittest.TestCase):
         result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_VM3_IP": "192.0.2.22"})
         rules = result["expected.rules.yml"]["groups"][0]["rules"]
         expected = {(rule["labels"]["job"], rule["labels"]["host"]) for rule in rules}
-        self.assertEqual(expected, {("node", "workload-vm2"), ("http", "workload-vm2"),
-                                    ("node", "workload-vm3"), ("http", "workload-vm3")})
+        self.assertEqual(expected, {(job, host) for job in ("node", "http", "cadvisor")
+                                    for host in ("workload-vm2", "workload-vm3")})
         for rule in rules:
             self.assertEqual(rule["record"], "moni:target_expected")
             self.assertEqual(rule["expr"], "vector(1)")
         self.assertNotIn("192.0.2", json.dumps(result["expected.rules.yml"]))
+
+    def test_cadvisor_target_uses_own_port(self):
+        result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_CADVISOR_PORT": "8090"})
+        self.assertEqual(result["cadvisor.json"], [{"targets": ["192.0.2.21:8090"],
+                                                    "labels": {"host": "workload-vm2", "environment": "lab"}}])
+        with self.assertRaises(ValueError):
+            render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_CADVISOR_PORT": "8080"})
 
     def test_ipv6_authority(self):
         result = render.build_targets({"WORKLOAD_IP": "2001:db8::21"})

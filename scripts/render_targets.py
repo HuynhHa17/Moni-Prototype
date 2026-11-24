@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_KEYS = {
     "WORKLOAD_IP", "WORKLOAD_HOST", "WORKLOAD_HTTP_PORT", "ENVIRONMENT",
     "WORKLOAD_VM3_IP", "WORKLOAD_VM3_HOST", "WORKLOAD_VM3_HTTP_PORT",
+    "WORKLOAD_CADVISOR_PORT", "WORKLOAD_VM3_CADVISOR_PORT",
 }
 
 
@@ -51,7 +52,7 @@ def label(value: str, key: str) -> str:
 
 def build_targets(values: dict[str, str]) -> dict[str, list[dict]]:
     environment = label(values.get("ENVIRONMENT", "lab"), "ENVIRONMENT")
-    nodes, probes = [], []
+    nodes, probes, containers = [], [], []
     hosts: set[str] = set()
     addresses: set[str] = set()
     for prefix, default_host in (("WORKLOAD", "workload-vm2"), ("WORKLOAD_VM3", "workload-vm3")):
@@ -65,9 +66,10 @@ def build_targets(values: dict[str, str]) -> dict[str, list[dict]]:
         if address.is_unspecified or address.is_multicast or address.is_loopback:
             raise ValueError(f"{prefix}_IP: must identify a reachable workload VM")
         host = label(values.get(f"{prefix}_HOST", default_host), f"{prefix}_HOST")
-        port = values.get(f"{prefix}_HTTP_PORT", "8080")
-        if not port.isascii() or not port.isdigit() or not 1 <= int(port) <= 65535:
-            raise ValueError(f"{prefix}_HTTP_PORT: expected a port from 1 to 65535")
+        port = port_value(values, f"{prefix}_HTTP_PORT", "8080")
+        cadvisor_port = port_value(values, f"{prefix}_CADVISOR_PORT", "8081")
+        if cadvisor_port == port:
+            raise ValueError(f"{prefix}_CADVISOR_PORT: must differ from {prefix}_HTTP_PORT")
         if host in hosts or str(address) in addresses:
             raise ValueError("Each workload must have a distinct host label and IP address")
         hosts.add(host)
@@ -77,13 +79,22 @@ def build_targets(values: dict[str, str]) -> dict[str, list[dict]]:
         nodes.append({"targets": [f"{authority}:9100"], "labels": common})
         probes.append({"targets": [f"http://{authority}:{port}/health"],
                        "labels": {**common, "service": "moni-nginx"}})
-    return {"node.json": nodes, "http.json": probes, "expected.rules.yml": inventory_rules(nodes, probes)}
+        containers.append({"targets": [f"{authority}:{cadvisor_port}"], "labels": common})
+    return {"node.json": nodes, "http.json": probes, "cadvisor.json": containers,
+            "expected.rules.yml": inventory_rules(nodes, probes, containers)}
 
 
-def inventory_rules(nodes: list[dict], probes: list[dict]) -> dict:
+def port_value(values: dict[str, str], key: str, default: str) -> str:
+    port = values.get(key, default)
+    if not port.isascii() or not port.isdigit() or not 1 <= int(port) <= 65535:
+        raise ValueError(f"{key}: expected a port from 1 to 65535")
+    return port
+
+
+def inventory_rules(nodes: list[dict], probes: list[dict], containers: list[dict]) -> dict:
     """Recording rules listing each target the lab expects, independent of service discovery."""
     rules = []
-    for job, entries in (("node", nodes), ("http", probes)):
+    for job, entries in (("node", nodes), ("http", probes), ("cadvisor", containers)):
         for entry in entries:
             rules.append({"record": "moni:target_expected", "expr": "vector(1)",
                           "labels": {"job": job, **entry["labels"]}})

@@ -2,7 +2,7 @@ groups:
   - name: monitoring_coverage
     rules:
       - alert: ExporterDown
-        expr: up{job=~"node|blackbox-exporter"} == 0
+        expr: up{job=~"node|cadvisor|blackbox-exporter"} == 0
         for: 1m
         labels:
           severity: warning

@@ -66,6 +66,19 @@ class HostDashboardTests(unittest.TestCase):
         self.assertIn('(up{job="node",host="$host"} == 1)', expression)
         self.assertEqual(panel["fieldConfig"]["defaults"]["noValue"], "CHƯA XÁC ĐỊNH")
 
+    def test_container_panels_use_cadvisor_and_hide_lost_containers(self):
+        cpu, ram, table = self.panels[11], self.panels[12], self.panels[13]
+        self.assertIn("rate(container_cpu_usage_seconds_total{", cpu["targets"][0]["expr"])
+        self.assertIn("container_memory_working_set_bytes{", ram["targets"][0]["expr"])
+        self.assertEqual(ram["fieldConfig"]["defaults"]["unit"], "bytes")
+        self.assertIn("container_last_seen", table["targets"][0]["expr"])
+        self.assertIn("> time() - 60", table["targets"][0]["expr"])
+        for panel in (cpu, ram, table):
+            expression = panel["targets"][0]["expr"]
+            self.assertIn('name!=""', expression)
+            self.assertIn('(up{job="cadvisor",host="$host"} == 1)', expression)
+        self.assertFalse(cpu["fieldConfig"]["defaults"]["custom"]["spanNulls"])
+
 
 if __name__ == "__main__":
     unittest.main()
