@@ -77,7 +77,17 @@ def build_targets(values: dict[str, str]) -> dict[str, list[dict]]:
         nodes.append({"targets": [f"{authority}:9100"], "labels": common})
         probes.append({"targets": [f"http://{authority}:{port}/health"],
                        "labels": {**common, "service": "moni-nginx"}})
-    return {"node.json": nodes, "http.json": probes}
+    return {"node.json": nodes, "http.json": probes, "expected.rules.yml": inventory_rules(nodes, probes)}
+
+
+def inventory_rules(nodes: list[dict], probes: list[dict]) -> dict:
+    """Recording rules listing each target the lab expects, independent of service discovery."""
+    rules = []
+    for job, entries in (("node", nodes), ("http", probes)):
+        for entry in entries:
+            rules.append({"record": "moni:target_expected", "expr": "vector(1)",
+                          "labels": {"job": job, **entry["labels"]}})
+    return {"groups": [{"name": "moni_inventory", "rules": rules}]}
 
 
 def write_atomic(path: Path, text: str) -> None:

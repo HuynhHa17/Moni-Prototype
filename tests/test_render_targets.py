@@ -23,6 +23,17 @@ class TargetRenderingTests(unittest.TestCase):
         self.assertEqual([entry["labels"]["host"] for entry in result["node.json"]], ["workload-vm2", "workload-vm3"])
         self.assertEqual(len(result["http.json"]), 2)
 
+    def test_inventory_lists_every_expected_target(self):
+        result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_VM3_IP": "192.0.2.22"})
+        rules = result["expected.rules.yml"]["groups"][0]["rules"]
+        expected = {(rule["labels"]["job"], rule["labels"]["host"]) for rule in rules}
+        self.assertEqual(expected, {("node", "workload-vm2"), ("http", "workload-vm2"),
+                                    ("node", "workload-vm3"), ("http", "workload-vm3")})
+        for rule in rules:
+            self.assertEqual(rule["record"], "moni:target_expected")
+            self.assertEqual(rule["expr"], "vector(1)")
+        self.assertNotIn("192.0.2", json.dumps(result["expected.rules.yml"]))
+
     def test_ipv6_authority(self):
         result = render.build_targets({"WORKLOAD_IP": "2001:db8::21"})
         self.assertEqual(result["http.json"][0]["targets"], ["http://[2001:db8::21]:8080/health"])
