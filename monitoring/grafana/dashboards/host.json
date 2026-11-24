@@ -7,7 +7,7 @@
     "host"
   ],
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "timezone": "browser",
   "refresh": "15s",
   "time": {
@@ -447,6 +447,117 @@
           "legendFormat": "{{host}} — HTTP",
           "instant": false,
           "range": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Mạng nhận/gửi theo interface (bit/s)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Từ counter node_network_*_bytes_total, rate rồi nhân 8 ra bit/s. Gửi vẽ phía âm. Bỏ loopback và interface ảo của Docker/bridge (lo, veth*, docker*, br-*, virbr*) vì không phải lưu lượng ra/vào host.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*gửi$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(8 * rate(node_network_receive_bytes_total{job=\"node\",host=\"$host\",device!~\"lo|veth.*|docker.*|br-.*|virbr.*\"}[$__rate_interval])) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{device}} nhận",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "(8 * rate(node_network_transmit_bytes_total{job=\"node\",host=\"$host\",device!~\"lo|veth.*|docker.*|br-.*|virbr.*\"}[$__rate_interval])) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{device}} gửi",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Uptime host (từ lúc boot)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "description": "time() - node_boot_time_seconds: thời gian từ lần khởi động gần nhất của host. Không dùng up, vì up chỉ cho biết lần scrape gần nhất thành công.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - node_boot_time_seconds{job=\"node\",host=\"$host\"}) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{instance}}",
+          "instant": true,
+          "range": false
         }
       ]
     }
