@@ -49,6 +49,12 @@ không cần recreate. `expected.rules.yml` là inventory kỳ vọng cho cảnh
 `TargetMissing` (ALT-10); rule chỉ nạp lại khi Prometheus nhận SIGHUP:
 `docker compose -f monitoring/compose.yaml kill -s HUP prometheus`.
 
+`prometheus.yml` được bind mount như một file riêng. `git pull` hoặc
+`git apply` thay file bằng inode mới nên SIGHUP vẫn đọc nội dung cũ. Sau khi
+`prometheus.yml` thay đổi, tạo lại container (dữ liệu nằm trong volume):
+`docker compose -f monitoring/compose.yaml up -d --force-recreate prometheus`.
+Thư mục `rules/` và `targets/` được mount cả thư mục nên SIGHUP là đủ.
+
 ## VM2 — Workload
 
 ```bash
