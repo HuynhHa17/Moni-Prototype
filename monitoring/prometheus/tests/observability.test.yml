@@ -29,6 +29,8 @@ tests:
               summary: "Prometheus không thu thập được node tại alpha:9100"
               description: "up = 0 liên tục ít nhất 1 phút. Số liệu của target này không còn cập nhật nên trạng thái là chưa xác định; không phải bằng chứng host đã tắt hay dịch vụ vẫn ổn."
               action: "Kiểm tra container exporter (docker compose ps), cổng trong instance và đường mạng từ VM1; xem panel Thu thập trên dashboard Host."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#exporterdown"
 
   - name: Failed probe scrape is unknown, not HTTP down
     interval: 15s
@@ -51,6 +53,8 @@ tests:
               summary: "Không lấy được kết quả kiểm tra HTTP http://alpha:8080/health trên alpha"
               description: "Prometheus không scrape được Blackbox cho probe này liên tục ít nhất 1 phút. Trạng thái HTTP là chưa xác định, không phải HTTP lỗi hay HTTP đạt; ServiceHttpDown không đánh giá khi mất probe."
               action: "Kiểm tra container blackbox trên VM1 và log của nó; nếu ExporterDown của blackbox-exporter cũng firing thì xử lý Blackbox trước."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#probescrapefailed"
       - eval_time: 2m
         alertname: ServiceHttpDown
         exp_alerts: []
@@ -82,6 +86,8 @@ tests:
               summary: "Target node của alpha không còn trong Prometheus"
               description: "Inventory kỳ vọng có target này nhưng Prometheus không còn series up (mất khỏi service discovery hoặc bị relabel loại). Không có dữ liệu để đánh giá; các cảnh báo khác của target có thể đã hết firing vì thiếu dữ liệu."
               action: "Chạy lại scripts/render_targets.py, kiểm tra .runtime/prometheus/targets và trang Targets của Prometheus; ExporterDown không thay được cảnh báo này."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#targetmissing"
       - eval_time: 5m
         alertname: ExporterDown
         exp_alerts: []
