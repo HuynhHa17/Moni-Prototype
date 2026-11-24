@@ -10,6 +10,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Endpoint HTTP trên {{ $labels.host }} không đạt kiểm tra"
-          description: "{{ $labels.instance }} thất bại liên tục ít nhất 1 phút; Prometheus vẫn thu được kết quả probe."
+          summary: "Dịch vụ {{ $labels.service }} trên {{ $labels.host }} không đạt kiểm tra HTTP"
+          description: "Kiểm tra {{ $labels.instance }} thất bại liên tục ít nhất 1 phút trong khi Prometheus vẫn thu được kết quả probe (up = 1). Người dùng gọi endpoint này có thể đang nhận lỗi; nguyên nhân chưa xác định."
           action: "Kiểm tra Nginx, log container, cổng trong URL instance và đường mạng từ VM1 tới host đích."
+          dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
+          runbook: "docs/alerts.md#servicehttpdown"

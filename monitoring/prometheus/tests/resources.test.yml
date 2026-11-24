@@ -31,6 +31,8 @@ tests:
               summary: "CPU trên alpha vượt 85%"
               description: "CPU dùng 95% (trung bình 2 phút), trên 85% liên tục ít nhất 3 phút. Đây là quan sát tài nguyên, chưa phải bằng chứng dịch vụ lỗi."
               action: "Trên alpha chạy top hoặc ps -eo pid,comm,%cpu --sort=-%cpu | head để tìm tiến trình chiếm CPU; đối chiếu panel HTTP trên dashboard Host."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#hosthighcpu"
 
   - name: Short CPU spike does not fire
     interval: 15s
@@ -124,6 +126,8 @@ tests:
               summary: "Filesystem /mnt/moni-disktest trên alpha dùng trên 90%"
               description: "/mnt/moni-disktest (/dev/loop0, ext4) đã dùng 95% theo dung lượng ứng dụng còn ghi được, liên tục ít nhất 2 phút. Chỉ ứng dụng ghi vào mount này mới có thể bị ảnh hưởng."
               action: "Trên alpha chạy df -h /mnt/moni-disktest và du -xh --max-depth=1 /mnt/moni-disktest | sort -h | tail để tìm thư mục lớn; xác nhận mount đúng trước khi xóa dữ liệu."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#filesystemalmostfull"
 
   - name: Filesystem below threshold does not fire
     interval: 15s

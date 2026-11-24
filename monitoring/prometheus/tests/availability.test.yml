@@ -49,3 +49,27 @@ tests:
       - expr: 'ALERTS{alertname="ServiceHttpDown",alertstate="firing"}'
         eval_time: 3m
         exp_samples: []
+  - name: Alert content names the object and links dashboard and runbook
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="http",instance="http://alpha/health",host="alpha",environment="lab",service="moni-nginx"}'
+        values: '0+0x12'
+      - series: 'up{job="http",instance="http://alpha/health",host="alpha",environment="lab",service="moni-nginx"}'
+        values: '1+0x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ServiceHttpDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: http
+              instance: http://alpha/health
+              host: alpha
+              environment: lab
+              service: moni-nginx
+            exp_annotations:
+              summary: "Dịch vụ moni-nginx trên alpha không đạt kiểm tra HTTP"
+              description: "Kiểm tra http://alpha/health thất bại liên tục ít nhất 1 phút trong khi Prometheus vẫn thu được kết quả probe (up = 1). Người dùng gọi endpoint này có thể đang nhận lỗi; nguyên nhân chưa xác định."
+              action: "Kiểm tra Nginx, log container, cổng trong URL instance và đường mạng từ VM1 tới host đích."
+              dashboard: "/d/moni-vm2/?var-host=alpha"
+              runbook: "docs/alerts.md#servicehttpdown"
