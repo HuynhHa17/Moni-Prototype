@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Trang-1" id="gBCaG0BoWIf9zRDLNNrq">
+    <mxGraphModel dx="1421" dy="1242" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" value="&lt;b style=&quot;font-size: 16px;&quot;&gt;SƠ ĐỒ USE CASE: PHÂN QUYỀN CHỨC NĂNG TRONG PHẠM VI MONI PROTOTYPE&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="760" x="180" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fillColor=#f8f9fa;strokeColor=#6c757d;" value="&lt;b&gt;CHÚ GIẢI (LEGEND)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="125" width="280" x="780" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_impl" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="Đã triển khai (Trạng thái hiện tại)" vertex="1">
+          <mxGeometry height="32" width="250" x="795" y="112" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_prop" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;dashPattern=6 4;fontSize=11;" value="Thiết kế đề xuất (Chưa/Đang hoàn thiện)" vertex="1">
+          <mxGeometry height="32" width="250" x="795" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="sys_bound" parent="1" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=center;spacingTop=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" value="&lt;b&gt;Phạm vi hệ thống: Moni Prototype&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size: 11px;&quot;&gt;(Lab riêng: chủ lab tự quản trị | Lab chung: chủ lab quản trị, thành viên xem qua Grafana Viewer)&lt;/i&gt;" vertex="1">
+          <mxGeometry height="450" width="500" x="310" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="actor_admin" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Người quản trị&lt;/b&gt;&lt;br&gt;(Administrator / Chủ lab)" vertex="1">
+          <mxGeometry height="80" width="40" x="130" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="actor_viewer" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Người xem dashboard&lt;/b&gt;&lt;br&gt;(Grafana Viewer / Thành viên)" vertex="1">
+          <mxGeometry height="80" width="40" x="950" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_dashboard" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Xem dashboard giám sát" vertex="1">
+          <mxGeometry height="60" width="220" x="450" y="295" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_alerts" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;dashPattern=6 4;fontStyle=1;" value="Xem cảnh báo / lịch sử&lt;br&gt;(Trên giao diện Dashboard)" vertex="1">
+          <mxGeometry height="60" width="220" x="450" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_config" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;dashPattern=6 4;fontStyle=1;" value="Cấu hình giám sát và vận hành" vertex="1">
+          <mxGeometry height="60" width="220" x="450" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_cli" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Xem lịch sử qua CLI&lt;br&gt;&lt;i style=&quot;font-size: 11px;&quot;&gt;(Chỉ dành cho Quản trị)&lt;/i&gt;" vertex="1">
+          <mxGeometry height="60" width="220" x="450" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="note_cli" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" value="&lt;b&gt;Lưu ý thiết kế:&lt;/b&gt; Xem lịch sử qua CLI là chức năng quản trị. Không giả định đã có giao diện lịch sử cho Viewer." vertex="1">
+          <mxGeometry height="75" width="225" x="835" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="link_note" edge="1" parent="1" source="uc_cli" style="endArrow=none;dashed=1;html=1;strokeColor=#d6b656;" target="note_cli" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_admin_1" edge="1" parent="1" source="actor_admin" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_dashboard" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_admin_2" edge="1" parent="1" source="actor_admin" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_alerts" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_admin_3" edge="1" parent="1" source="actor_admin" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_config" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_admin_4" edge="1" parent="1" source="actor_admin" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_cli" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_view_1" edge="1" parent="1" source="actor_viewer" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_dashboard" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_view_2" edge="1" parent="1" source="actor_viewer" style="endArrow=none;html=1;strokeWidth=1.5;" target="uc_alerts" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
