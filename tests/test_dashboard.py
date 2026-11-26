@@ -11,6 +11,7 @@ class HostDashboardTests(unittest.TestCase):
     def setUp(self):
         self.dashboard = json.loads(DASHBOARD.read_text(encoding="utf-8"))
         self.panels = {panel["id"]: panel for panel in self.dashboard["panels"]}
+        self.content = [p for p in self.dashboard["panels"] if p["type"] != "row"]
 
     def test_http_result_requires_successful_http_scrape(self):
         expression = self.panels[1]["targets"][0]["expr"]
@@ -32,8 +33,8 @@ class HostDashboardTests(unittest.TestCase):
     def test_status_maps_expose_unknown_failure_and_success(self):
         expected_mappings = {
             "-1": "CHƯA XÁC ĐỊNH",
-            "0": "HTTP THẤT BẠI",
-            "1": "HTTP ĐẠT",
+            "0": "LỖI",
+            "1": "ĐẠT",
         }
         defaults = self.panels[1]["fieldConfig"]["defaults"]
         mappings = defaults["mappings"][0]["options"]
@@ -78,6 +79,55 @@ class HostDashboardTests(unittest.TestCase):
             self.assertIn('name!=""', expression)
             self.assertIn('(up{job="cadvisor",host="$host"} == 1)', expression)
         self.assertFalse(cpu["fieldConfig"]["defaults"]["custom"]["spanNulls"])
+
+
+    def test_panels_do_not_overlap_and_fit_the_grid(self):
+        cells = {}
+        for panel in self.dashboard["panels"]:
+            pos = panel["gridPos"]
+            self.assertLessEqual(pos["x"] + pos["w"], 24, panel["title"])
+            for x in range(pos["x"], pos["x"] + pos["w"]):
+                for y in range(pos["y"], pos["y"] + pos["h"]):
+                    self.assertNotIn((x, y), cells, f'{panel["title"]} chồng {cells.get((x, y))}')
+                    cells[(x, y)] = panel["title"]
+
+    def test_overview_row_answers_status_at_a_glance(self):
+        top = sorted(
+            (p for p in self.content if p["gridPos"]["y"] == 1),
+            key=lambda p: p["gridPos"]["x"],
+        )
+        self.assertEqual(
+            [p["title"] for p in top],
+            ["HTTP /health", "Độ trễ HTTP", "CPU", "RAM", "Disk đầy nhất", "Uptime"],
+        )
+
+    def test_cpu_uses_same_window_and_threshold_as_rule(self):
+        for pid in (4, 15):
+            expression = self.panels[pid]["targets"][0]["expr"]
+            self.assertIn("[2m]", expression)
+            self.assertNotIn("[5m]", expression)
+        steps = self.panels[4]["fieldConfig"]["defaults"]["thresholds"]["steps"]
+        self.assertEqual(steps[-1]["value"], 85)
+        disk_steps = self.panels[6]["fieldConfig"]["defaults"]["thresholds"]["steps"]
+        self.assertEqual(disk_steps[-1]["value"], 90)
+
+    def test_legends_do_not_show_instance_addresses(self):
+        for panel in self.content:
+            for target in panel.get("targets", []):
+                self.assertNotIn("{{instance}}", target.get("legendFormat", ""), panel["title"])
+
+    def test_alert_table_lists_prometheus_alerts_for_selected_host(self):
+        panel = self.panels[18]
+        self.assertEqual(panel["targets"][0]["expr"], 'ALERTS{host="$host"}')
+        self.assertEqual(panel["fieldConfig"]["defaults"]["noValue"], "Không có cảnh báo")
+
+    def test_collection_status_covers_every_scrape_job(self):
+        jobs = {pid: self.panels[pid]["targets"][0]["expr"] for pid in (2, 3, 19)}
+        self.assertIn('up{job="node",host="$host"}', jobs[2])
+        self.assertIn('up{job="http",host="$host"}', jobs[3])
+        self.assertIn('up{job="cadvisor",host="$host"}', jobs[19])
+        for expression in jobs.values():
+            self.assertIn("vector(-1)", expression)
 
 
 if __name__ == "__main__":
