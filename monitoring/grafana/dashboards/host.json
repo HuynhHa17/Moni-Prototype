@@ -1,13 +1,13 @@
 {
   "uid": "moni-vm2",
   "title": "Host — tài nguyên và HTTP",
-  "description": "Chọn host để xem tài nguyên, HTTP và đường thu thập. Thiếu dữ liệu là chưa xác định; probe_success khác up. UID giữ để tương thích URL cũ.",
+  "description": "Chọn host. Hàng trên cùng trả lời: dịch vụ có chạy không, tài nguyên có gần ngưỡng không, đang có cảnh báo nào. Thiếu dữ liệu hiện CHƯA XÁC ĐỊNH, không bị coi là lỗi. UID giữ để tương thích URL cũ.",
   "tags": [
     "moni",
     "host"
   ],
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "timezone": "browser",
   "refresh": "15s",
   "time": {
@@ -16,8 +16,21 @@
   },
   "panels": [
     {
+      "id": 100,
+      "type": "row",
+      "title": "Tổng quan",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
       "id": 1,
-      "title": "HTTP host — kết quả kiểm tra /health",
+      "title": "HTTP /health",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -25,8 +38,8 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 0,
-        "w": 8,
+        "y": 1,
+        "w": 4,
         "h": 4
       },
       "fieldConfig": {
@@ -42,11 +55,11 @@
                   "color": "gray"
                 },
                 "0": {
-                  "text": "HTTP THẤT BẠI",
+                  "text": "LỖI",
                   "color": "red"
                 },
                 "1": {
-                  "text": "HTTP ĐẠT",
+                  "text": "ĐẠT",
                   "color": "green"
                 }
               }
@@ -58,7 +71,7 @@
       "options": {
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "auto",
+        "textMode": "value",
         "reduceOptions": {
           "calcs": [
             "last"
@@ -70,7 +83,417 @@
         {
           "refId": "A",
           "expr": "(probe_success{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1)) or on() vector(-1)",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "Kết quả probe Blackbox tới /health. CHƯA XÁC ĐỊNH khi Prometheus không scrape được Blackbox, để không nhầm mất dữ liệu với dịch vụ lỗi."
+    },
+    {
+      "id": 14,
+      "title": "Độ trễ HTTP",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Thời gian một lần probe /health thành công. Màu chỉ để đọc nhanh, không phải ngưỡng cảnh báo.",
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "probe_duration_seconds{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1) and on(job, instance) (probe_success{job=\"http\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "CPU",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Cùng công thức và cửa sổ 2m với rule HostHighCpu. Đỏ từ 85% = ngưỡng của rule (rule còn chờ thêm 3 phút).",
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(100 * (1 - avg by(host) (rate(node_cpu_seconds_total{job=\"node\",host=\"$host\",mode=\"idle\"}[2m])))) and on(host) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "RAM",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "RAM đã dùng theo MemAvailable. Chưa có rule RAM; màu chỉ để đọc nhanh.",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(100 * (1 - node_memory_MemAvailable_bytes{job=\"node\",host=\"$host\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"$host\"})) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Disk đầy nhất",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Filesystem có % đã dùng cao nhất. Đỏ từ 90% = ngưỡng rule FilesystemAlmostFull. Xem từng mountpoint ở panel bên dưới.",
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(host) (100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(host) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Uptime",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "description": "time() - node_boot_time_seconds: thời gian từ lần khởi động gần nhất của host. Không dùng up, vì up chỉ cho biết lần scrape gần nhất thành công.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(time() - node_boot_time_seconds{job=\"node\",host=\"$host\"}) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Cảnh báo đang bật",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 16,
+        "h": 6
+      },
+      "description": "Series ALERTS của Prometheus cho host này. pending = điều kiện đúng nhưng chưa đủ thời gian chờ; firing = đã gửi Alertmanager.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Không có cảnh báo"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trạng thái"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "firing": {
+                        "text": "firing",
+                        "color": "red"
+                      },
+                      "pending": {
+                        "text": "pending",
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "environment": true,
+              "host": true
+            },
+            "indexByName": {
+              "alertname": 0,
+              "alertstate": 1,
+              "severity": 2
+            },
+            "renameByName": {
+              "alertname": "Cảnh báo",
+              "alertstate": "Trạng thái",
+              "severity": "Mức"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{host=\"$host\"}",
+          "format": "table",
           "instant": true,
           "range": false
         }
@@ -78,17 +501,17 @@
     },
     {
       "id": 2,
-      "title": "Thu thập tài nguyên host",
+      "title": "Thu thập · Node Exporter",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 0,
+        "x": 16,
+        "y": 5,
         "w": 8,
-        "h": 4
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -103,11 +526,11 @@
                   "color": "gray"
                 },
                 "0": {
-                  "text": "MẤT THU THẬP",
+                  "text": "MẤT",
                   "color": "red"
                 },
                 "1": {
-                  "text": "THU THẬP ĐƯỢC",
+                  "text": "ĐANG THU",
                   "color": "green"
                 }
               }
@@ -119,7 +542,7 @@
       "options": {
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "auto",
+        "textMode": "value",
         "reduceOptions": {
           "calcs": [
             "last"
@@ -131,15 +554,16 @@
         {
           "refId": "A",
           "expr": "up{job=\"node\",host=\"$host\"} or on() vector(-1)",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "up của job node. CHƯA XÁC ĐỊNH khi Prometheus chưa có target này."
     },
     {
       "id": 3,
-      "title": "Thu thập kết quả Blackbox",
+      "title": "Thu thập · Blackbox",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -147,9 +571,9 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 0,
+        "y": 7,
         "w": 8,
-        "h": 4
+        "h": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -164,11 +588,11 @@
                   "color": "gray"
                 },
                 "0": {
-                  "text": "MẤT THU THẬP",
+                  "text": "MẤT",
                   "color": "red"
                 },
                 "1": {
-                  "text": "THU THẬP ĐƯỢC",
+                  "text": "ĐANG THU",
                   "color": "green"
                 }
               }
@@ -180,7 +604,7 @@
       "options": {
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "auto",
+        "textMode": "value",
         "reduceOptions": {
           "calcs": [
             "last"
@@ -192,111 +616,91 @@
         {
           "refId": "A",
           "expr": "up{job=\"http\",host=\"$host\"} or on() vector(-1)",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
           "instant": true,
           "range": false
         }
-      ]
+      ],
+      "description": "up của job http. CHƯA XÁC ĐỊNH khi Prometheus chưa có target này."
+    },
+    {
+      "id": 19,
+      "title": "Thu thập · cAdvisor",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "CHƯA XÁC ĐỊNH",
+                  "color": "gray"
+                },
+                "0": {
+                  "text": "MẤT",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "ĐANG THU",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"cadvisor\",host=\"$host\"} or on() vector(-1)",
+          "legendFormat": "{{host}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "description": "up của job cadvisor. CHƯA XÁC ĐỊNH khi Prometheus chưa có target này."
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Tài nguyên host",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
     },
     {
       "id": 4,
       "title": "CPU sử dụng (%)",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "noValue": "CHƯA XÁC ĐỊNH",
-          "min": 0,
-          "max": 100,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "spanNulls": false
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{job=\"node\",host=\"$host\",mode=\"idle\"}[5m])))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
-          "legendFormat": "{{instance}}",
-          "instant": false,
-          "range": true
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "RAM sử dụng (%)",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "noValue": "CHƯA XÁC ĐỊNH",
-          "min": 0,
-          "max": 100,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "spanNulls": false
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(100 * (1 - node_memory_MemAvailable_bytes{job=\"node\",host=\"$host\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"$host\"})) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
-          "legendFormat": "{{instance}}",
-          "instant": false,
-          "range": true
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "Dung lượng filesystem đã dùng (%)",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -318,7 +722,138 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(100 * (1 - avg by(host) (rate(node_cpu_seconds_total{job=\"node\",host=\"$host\",mode=\"idle\"}[2m])))) and on(host) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "CPU",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "description": "Đường đứt đỏ 85% = ngưỡng HostHighCpu. Cửa sổ 2m giống rule."
+    },
+    {
+      "id": 5,
+      "title": "RAM sử dụng (%)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
             "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(100 * (1 - node_memory_MemAvailable_bytes{job=\"node\",host=\"$host\"} / node_memory_MemTotal_bytes{job=\"node\",host=\"$host\"})) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "legendFormat": "RAM",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Filesystem đã dùng (%)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
           }
         },
         "overrides": []
@@ -336,15 +871,16 @@
         {
           "refId": "A",
           "expr": "(100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
-          "legendFormat": "{{instance}} — {{mountpoint}}",
+          "legendFormat": "{{mountpoint}}",
           "instant": false,
           "range": true
         }
-      ]
+      ],
+      "description": "Mỗi đường là một mountpoint. Đường đứt đỏ 90% = ngưỡng FilesystemAlmostFull."
     },
     {
-      "id": 7,
-      "title": "Thời gian probe HTTP thành công",
+      "id": 9,
+      "title": "Mạng nhận (trên) / gửi (dưới), bit/s",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -352,115 +888,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 12,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "CHƯA XÁC ĐỊNH",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "spanNulls": false
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "probe_duration_seconds{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1) and on(job, instance) (probe_success{job=\"http\",host=\"$host\"} == 1)",
-          "legendFormat": "{{host}} — HTTP",
-          "instant": false,
-          "range": true
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Diễn biến trạng thái HTTP",
-      "type": "state-timeline",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
         "y": 20,
-        "w": 24,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "noValue": "CHƯA XÁC ĐỊNH",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "-1": {
-                  "text": "CHƯA XÁC ĐỊNH",
-                  "color": "gray"
-                },
-                "0": {
-                  "text": "HTTP THẤT BẠI",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "HTTP ĐẠT",
-                  "color": "green"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "mergeValues": true,
-        "showValue": "auto",
-        "rowHeight": 0.8,
-        "legend": {
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(probe_success{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1)) or on() vector(-1)",
-          "legendFormat": "{{host}} — HTTP",
-          "instant": false,
-          "range": true
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "Mạng nhận/gửi theo interface (bit/s)",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 25,
         "w": 12,
         "h": 8
       },
@@ -518,48 +946,139 @@
       ]
     },
     {
-      "id": 10,
-      "title": "Uptime host (từ lúc boot)",
-      "type": "stat",
+      "id": 102,
+      "type": "row",
+      "title": "HTTP /health",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "title": "Diễn biến trạng thái HTTP",
+      "type": "state-timeline",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 25,
-        "w": 12,
-        "h": 8
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 4
       },
-      "description": "time() - node_boot_time_seconds: thời gian từ lần khởi động gần nhất của host. Không dùng up, vì up chỉ cho biết lần scrape gần nhất thành công.",
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "none",
           "noValue": "CHƯA XÁC ĐỊNH",
-          "decimals": 0
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "CHƯA XÁC ĐỊNH",
+                  "color": "gray"
+                },
+                "0": {
+                  "text": "LỖI",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "ĐẠT",
+                  "color": "green"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value",
-        "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
-          "values": false
+        "mergeValues": true,
+        "showValue": "auto",
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
         }
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(time() - node_boot_time_seconds{job=\"node\",host=\"$host\"}) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
-          "legendFormat": "{{instance}}",
-          "instant": true,
-          "range": false
+          "expr": "(probe_success{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1)) or on() vector(-1)",
+          "legendFormat": "/health",
+          "instant": false,
+          "range": true
         }
       ]
+    },
+    {
+      "id": 7,
+      "title": "Thời gian probe /health thành công",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "CHƯA XÁC ĐỊNH",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "probe_duration_seconds{job=\"http\",host=\"$host\"} and on(job, instance) (up{job=\"http\",host=\"$host\"} == 1) and on(job, instance) (probe_success{job=\"http\",host=\"$host\"} == 1)",
+          "legendFormat": "/health",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Container (cAdvisor)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
     },
     {
       "id": 11,
@@ -571,7 +1090,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 41,
         "w": 12,
         "h": 8
       },
@@ -620,7 +1139,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 33,
+        "y": 41,
         "w": 12,
         "h": 8
       },
@@ -668,7 +1187,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 49,
         "w": 24,
         "h": 7
       },

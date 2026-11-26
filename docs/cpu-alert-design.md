@@ -22,8 +22,8 @@ Lấy trung bình qua mọi nhân rồi đổi sang phần trăm đã dùng:
 - `iowait` được tính là bận vì không thuộc `idle`. Khi cần tách CPU tính
   toán với chờ I/O thì xem riêng `mode="iowait"` trên dashboard.
 - Cửa sổ 2 phút = 8 mẫu ở `scrape_interval` 15s. Mất 1–2 lần scrape vẫn
-  còn đủ mẫu; đủ ngắn để bắt tải kéo dài trong lab. Dashboard dùng `[5m]`
-  để đường cong mượt hơn, nên sẽ lên chậm hơn rule một chút.
+  còn đủ mẫu; đủ ngắn để bắt tải kéo dài trong lab. Dashboard dùng cùng cửa sổ `[2m]`
+  nên panel CPU và rule luôn khớp nhau (từ dashboard v6).
 
 ## 2. Ngưỡng và thời gian chờ khởi đầu
 
