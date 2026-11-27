@@ -14,12 +14,9 @@
 
   <p>
     <a href="#live-demo">Live Demo</a> &nbsp;·&nbsp;
-    <a href="#kiến-trúc-hệ-thống">Kiến trúc</a> &nbsp;·&nbsp;
     <a href="#chiến-lược-cảnh-báo-4-tầng">Cảnh báo 4 tầng</a> &nbsp;·&nbsp;
     <a href="#triển-khai-nhanh">Triển khai nhanh</a> &nbsp;·&nbsp;
-    <a href="#kịch-bản-kiểm-thử-sự-cố">Kịch bản lỗi</a> &nbsp;·&nbsp;
-    <a href="#lộ-trình-triển-khai">Lộ trình</a> &nbsp;·&nbsp;
-    <a href="#tài-liệu-kỹ-thuật">Tài liệu</a>
+    <a href="#kịch-bản-kiểm-thử-sự-cố">Kịch bản lỗi</a>
   </p>
 </div>
 
@@ -52,52 +49,6 @@ Hệ thống tách bạch hoàn toàn mặt phẳng giám sát (`VM1`) khỏi đ
 > ```bash
 > cloudflared tunnel --url http://127.0.0.1:3000
 > ```
-
----
-
-## Kiến trúc hệ thống
-
-```mermaid
-flowchart LR
-    subgraph Targets["Đối tượng giám sát · Pha A (VM2) & Pha B (Cloud / DC)"]
-        VM2["VM2 Workload<br/>Nginx · Node Exporter · cAdvisor · disktest"]
-        Cloud["VM Cloud (Pha B)<br/>Node Exporter qua WireGuard / Tailscale"]
-        DC["DC Giả Lập (Pha B)<br/>SNMP UPS/PDU · Redfish BMC"]
-    end
-
-    subgraph VM1["VM1 Monitoring Plane · Docker Compose"]
-        Inv["inventory.yml<br/>render_targets.py"]
-        Self["Node Exporter VM1<br/>Tự giám sát VM1"]
-        BB["Blackbox Exporter<br/>HTTP / ICMP Probe"]
-        Prom["Prometheus v3.5<br/>TSDB 60d · Trần 5GB · Rules"]
-        AM["Alertmanager v0.28<br/>Routing · Inhibition · Silence"]
-        WH["Python Webhook<br/>/alerts · /health · /metrics"]
-        PG[("PostgreSQL 16<br/>episodes · events")]
-        Graf["Grafana 12.3<br/>Dashboards &amp; Incident History"]
-    end
-
-    Inv -->|file_sd + expected.rules| Prom
-    VM2 -->|Scrape 15s| Prom
-    Cloud -.->|VPN Scrape / Remote Write| Prom
-    DC -.->|SNMP / Redfish Exporter| Prom
-    Self -->|Scrape VM1| Prom
-    Prom -->|Probe| BB
-    BB -->|HTTP /health| VM2
-    Prom -->|PromQL| Graf
-    Prom -->|Firing / Resolved| AM
-    AM -->|POST /alerts| WH
-    WH -->|Upsert Episode| PG
-    PG -->|Native SQL| Graf
-```
-
-### Bảo đảm kỹ thuật cốt lõi
-
-| Nguyên tắc | Cách hiện thực trong repo |
-| :--- | :--- |
-| **Mất dữ liệu là Chưa xác định, không phải Khỏe** | Mọi rule tài nguyên và probe bắt buộc `up == 1`; mất dữ liệu hiển thị `CHƯA XÁC ĐỊNH` (`vector(-1)`) và kích hoạt `ExporterDown`, `ProbeScrapeFailed` hoặc `TargetMissing`. |
-| **Tách bạch Inventory & Secret** | `inventory.yml` và `.env` được gitignore; `scripts/render_targets.py` ghi nguyên tử `file_sd` kèm bộ nhãn chuẩn (`environment`, `site`, `rack`, `team`, `host`, `target_id`) và không lọt IP vào `expected.rules.yml`. |
-| **Vòng đời sự cố không trùng lặp** | Khóa định danh `(fingerprint, starts_at)` trong PostgreSQL 16 (`schema_pg.sql`), tách riêng thời gian nguồn (`startsAt`/`endsAt`) với thời gian nhận (`first_received_at`/`last_received_at`). |
-| **Giám sát chính hệ thống giám sát** | `VM1` tự chạy `node-exporter` (`host="monitoring-vm1"`), scrape `alertmanager:9093` và `webhook:8080/metrics`, áp trần `mem_limit`/`cpus` và cảnh báo lỗi reload, rule evaluation, notification và TSDB cap. |
 
 ---
 
@@ -221,35 +172,3 @@ docker run --rm --entrypoint amtool \
 ```
 
 </details>
-
----
-
-## Lộ trình triển khai
-
-Hoàn thiện trọn vẹn phần lõi trên 2 VM (**Pha A**) trước khi mở rộng sang Cloud và DC giả lập (**Pha B**):
-
-| Mốc | Phạm vi | Hạn chốt | Trạng thái | Đầu ra chính |
-| :--- | :--- | :---: | :---: | :--- |
-| **M0 – M1** | Nền tảng & 3 ca E2E lõi | `2026-11-25` | Hoàn thành | `TC-SVC`, `TC-CPU`, `TC-DSK`, `HIS-09`, `cAdvisor`, `Host Overview v6` |
-| **M2a** | Nâng cấp nền Production | `2026-12-04` | Hoàn thành | ADR-04, `inventory.yml`, PostgreSQL 16, VM1 self-monitoring, CI gate |
-| **M2b** | Lớp dịch vụ & 4 Dashboard | `2026-12-11` | Tiếp theo | `podinfo` + phát tải nền, SLO Burn Rate, Container alerts, 4 Dashboards |
-| **M3a** | Dự báo Disk & Reachability | `2026-12-18` | Kế hoạch | `disktest drip/burst`, `predict_linear` 4-guard, `HostDown` |
-| **M3b** | Alertmanager NOC & Lịch sử | `2026-12-25` | Kế hoạch | Telegram Critical/Warning, Inhibition, Watchdog, Dashboard Lịch sử |
-| **M4a** | Pha B: Cloud & DC giả lập | `2027-01-01` | Kế hoạch | `VM Cloud` (VPN + Heartbeat ngoài VM1), `DC Sim` (SNMP + Redfish) |
-| **M4b** | Fault Harness & Báo cáo KPI | `2027-01-08` | Kế hoạch | Feature Freeze, bộ đo Positive/Negative KPI, chốt ngưỡng `BSL-01` |
-| **M5** | Hardening & Bàn giao | `2027-01-15` | Kế hoạch | `SEC-01` (TLS/UFW), Backup/Restore `pg_dump`, dựng lại sạch `HND-02` |
-
----
-
-## Tài liệu kỹ thuật
-
-| Tài liệu | Nội dung |
-| :--- | :--- |
-| [docs/architecture.md](docs/architecture.md) | Topo hệ thống, luồng pull/alert và ranh giới mạng |
-| [docs/architecture-decision.md](docs/architecture-decision.md) | Hồ sơ quyết định kiến trúc (`ADR-01` → `ADR-04`) |
-| [docs/alerts.md](docs/alerts.md) | Danh mục cảnh báo đầy đủ và Runbook xử lý cho người trực |
-| [docs/setup.md](docs/setup.md) | Hướng dẫn cài đặt từng bước trên VM1 và VM2 |
-| [docs/project-plan.md](docs/project-plan.md) | Kế hoạch theo mốc, phụ thuộc và nguyên tắc thu gọn rủi ro |
-| [docs/requirements.md](docs/requirements.md) | Ma trận yêu cầu chức năng và phi chức năng |
-| [docs/validation.md](docs/validation.md) | Nhật ký bằng chứng xác minh trên lab thực tế |
-| [docs/acceptance-tests.md](docs/acceptance-tests.md) | Bộ tiêu chí và kịch bản kiểm thử nghiệm thu |
