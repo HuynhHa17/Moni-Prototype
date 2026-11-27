@@ -44,12 +44,6 @@ Hệ thống tách bạch hoàn toàn mặt phẳng giám sát (`VM1`) khỏi đ
 | **PostgreSQL 16** | `postgres:5432` | Nội bộ Docker `VM1` | Lưu bảng `episodes` & `events` với khóa hàng `FOR UPDATE` |
 | **Workload Probe** | `http://<VM2_IP>:8080/health` | Mạng lab | Endpoint kiểm tra tính sẵn sàng từ Blackbox Exporter |
 
-> [!TIP]
-> **Mở Live Demo tạm thời khi review / bảo vệ (không cần mở port router):**
-> ```bash
-> cloudflared tunnel --url http://127.0.0.1:3000
-> ```
-
 ---
 
 ## Chiến lược cảnh báo 4 tầng
