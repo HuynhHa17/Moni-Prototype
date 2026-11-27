@@ -67,6 +67,25 @@ class HttpTest(unittest.TestCase):
         self.assertNotIn("Kiểm tra Nginx", text)  # không in nội dung annotations
         self.assertNotIn("IP-LAB", text)  # không in instance/URL đích
 
+    def test_metrics_endpoint_exposes_prometheus_counters(self):
+        base = self.start(self.good_db)
+        self.call(base + "/alerts", FIRING)
+        with urllib.request.urlopen(base + "/metrics", timeout=5) as resp:
+            self.assertEqual(resp.status, 200)
+            body = resp.read().decode("utf-8")
+        self.assertIn("moni_webhook_requests_total", body)
+        self.assertIn('moni_webhook_alerts_total{outcome="new"}', body)
+
+    def test_invalid_content_length_returns_400(self):
+        base = self.start(self.good_db)
+        req = urllib.request.Request(base + "/alerts", data=b"{}", method="POST",
+                                     headers={"Content-Length": "not-a-number"})
+        try:
+            urllib.request.urlopen(req, timeout=5)
+            self.fail("Expected HTTP 400")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 400)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

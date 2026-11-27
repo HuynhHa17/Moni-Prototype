@@ -4,12 +4,15 @@ services:
   prometheus:
     image: prom/prometheus:v3.5.0
     restart: unless-stopped
+    mem_limit: 1536m
+    cpus: "1.5"
     ports:
       - "${MONITORING_BIND_IP:-0.0.0.0}:${PROMETHEUS_PORT:-9090}:9090"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.time=60d
+      - --storage.tsdb.retention.size=5GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - type: bind
@@ -24,21 +27,62 @@ services:
   blackbox:
     image: prom/blackbox-exporter:v0.26.0
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     command:
       - --config.file=/etc/blackbox_exporter/config.yml
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
 
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.5"
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-moni_history}"
+      POSTGRES_USER: "${POSTGRES_USER:-moni}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-CHANGE_ME_POSTGRES}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-moni} -d ${POSTGRES_DB:-moni_history}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
   grafana:
     image: grafana/grafana:12.3.0
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     ports:
       - "${MONITORING_BIND_IP:-0.0.0.0}:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-CHANGE_ME_GRAFANA}"
+      POSTGRES_DB: "${POSTGRES_DB:-moni_history}"
+      POSTGRES_USER: "${POSTGRES_USER:-moni}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-CHANGE_ME_POSTGRES}"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -47,6 +91,8 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.28.1
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     ports:
       - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
     command:
@@ -61,7 +107,13 @@ services:
     build: ./webhook
     image: moni-webhook:local
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.5"
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
+      WEBHOOK_DSN: "postgresql://${POSTGRES_USER:-moni}:${POSTGRES_PASSWORD:-CHANGE_ME_POSTGRES}@postgres:5432/${POSTGRES_DB:-moni_history}"
       WEBHOOK_DB: /data/history.db
     volumes:
       - webhook-data:/data
@@ -71,3 +123,4 @@ volumes:
   grafana-data:
   alertmanager-data:
   webhook-data:
+  postgres-data:

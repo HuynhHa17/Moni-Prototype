@@ -1,8 +1,11 @@
 import argparse
 import csv
+import os
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
+
+import store
 
 VN = timezone(timedelta(hours=7), "UTC+7")  # Việt Nam không đổi giờ theo mùa
 
@@ -12,13 +15,27 @@ EPISODE_COLS = ["id", "alertname", "host", "service", "severity", "status",
 EVENT_COLS = ["id", "episode_id", "status", "outcome", "ends_at", "received_at", "group_key"]
 
 
-def open_readonly(path):
+def open_readonly(target):
     """Mở CSDL ở chế độ chỉ đọc: không tạo file mới, không ghi được gì."""
-    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    if store.is_postgres(target):
+        conn = store._open_postgres(target)
+        with conn.cursor() as cur:
+            cur.execute("SET TRANSACTION READ ONLY")
+        return conn
+    return sqlite3.connect(f"file:{target}?mode=ro", uri=True)
+
+
+def _iso_str(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return str(value)
 
 
 def to_local(value):
     """Đổi chuỗi UTC trong CSDL sang giờ Việt Nam để hiển thị."""
+    value = _iso_str(value)
     if not value:
         return "-"
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -27,11 +44,22 @@ def to_local(value):
 
 def duration(starts_at, ends_at):
     """Thời gian sự cố; chưa có ends_at thì không tự tính."""
+    starts_at, ends_at = _iso_str(starts_at), _iso_str(ends_at)
     if not ends_at:
         return "-"
     start = datetime.fromisoformat(starts_at.replace("Z", "+00:00"))
     end = datetime.fromisoformat(ends_at.replace("Z", "+00:00"))
     return str(end - start).split(".")[0]
+
+
+def _fetchall(conn, sql, params):
+    if isinstance(conn, sqlite3.Connection):
+        return conn.execute(sql, params).fetchall()
+    pg_sql = sql.replace("?", "%s")
+    with conn.cursor() as cur:
+        cur.execute(pg_sql, params)
+        rows = cur.fetchall()
+    return [tuple(_iso_str(v) if isinstance(v, datetime) else v for v in r) for r in rows]
 
 
 def query_episodes(conn, host=None, status=None, limit=None):
@@ -47,7 +75,7 @@ def query_episodes(conn, host=None, status=None, limit=None):
     if limit:
         sql += " LIMIT ?"
         params.append(limit)
-    return conn.execute(sql, params).fetchall()
+    return _fetchall(conn, sql, params)
 
 
 def query_events(conn, episode_id=None):
@@ -56,7 +84,7 @@ def query_events(conn, episode_id=None):
     if episode_id is not None:
         sql += " WHERE episode_id = ?"
         params.append(episode_id)
-    return conn.execute(sql + " ORDER BY id", params).fetchall()
+    return _fetchall(conn, sql + " ORDER BY id", params)
 
 
 def print_table(header, rows, out):
@@ -97,7 +125,8 @@ def cmd_export(conn, args, out):
 
 def build_parser():
     p = argparse.ArgumentParser(description="Xem và xuất lịch sử cảnh báo (chỉ đọc).")
-    p.add_argument("--db", default="history.db", help="đường dẫn CSDL SQLite")
+    p.add_argument("--db", default=None, help="đường dẫn CSDL SQLite hoặc PostgreSQL DSN")
+    p.add_argument("--dsn", default=None, help="chuỗi kết nối PostgreSQL (ưu tiên hơn --db)")
     sub = p.add_subparsers(dest="command", required=True)
 
     ep = sub.add_parser("episodes", help="liệt kê các lần phát sinh cảnh báo")
@@ -119,11 +148,12 @@ def build_parser():
 def main(argv=None, out=None):
     args = build_parser().parse_args(argv)
     out = out or sys.stdout
+    target = args.dsn or args.db or os.environ.get("WEBHOOK_DSN") or os.environ.get("WEBHOOK_DB", "history.db")
     try:
-        conn = open_readonly(args.db)
-        conn.execute("SELECT 1 FROM episodes LIMIT 1")
-    except sqlite3.Error as exc:
-        sys.stderr.write(f"không mở được CSDL {args.db}: {exc}\n")
+        conn = open_readonly(target)
+        _fetchall(conn, "SELECT 1 FROM episodes LIMIT 1", [])
+    except Exception as exc:
+        sys.stderr.write(f"không mở được CSDL {target}: {exc}\n")
         return 1
     try:
         if args.command == "export" and args.output:

@@ -349,7 +349,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by(host) (100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(host) (up{job=\"node\",host=\"$host\"} == 1)",
+          "expr": "max by(host) (100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*\"} > 0))) and on(host) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{host}}",
           "instant": false,
           "range": true
@@ -870,7 +870,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs\"} > 0))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
+          "expr": "(100 * (1 - node_filesystem_avail_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*\"} / (node_filesystem_size_bytes{job=\"node\",host=\"$host\",fstype!~\"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*\"} > 0))) and on(instance) (up{job=\"node\",host=\"$host\"} == 1)",
           "legendFormat": "{{mountpoint}}",
           "instant": false,
           "range": true
@@ -1122,7 +1122,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",host=\"$host\",name!=\"\"}[$__rate_interval])) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "expr": "sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",host=\"$host\",name!=\"\"}[$__rate_interval])) and on() (max(up{job=\"cadvisor\",host=\"$host\"}) == 1)",
           "legendFormat": "{{name}}",
           "instant": false,
           "range": true
@@ -1170,7 +1170,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(name) (container_memory_working_set_bytes{job=\"cadvisor\",host=\"$host\",name!=\"\"}) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "expr": "sum by(name) (container_memory_working_set_bytes{job=\"cadvisor\",host=\"$host\",name!=\"\"}) and on() (max(up{job=\"cadvisor\",host=\"$host\"}) == 1)",
           "legendFormat": "{{name}}",
           "instant": false,
           "range": true
@@ -1226,7 +1226,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by(name, image, container_label_com_docker_compose_service) (container_last_seen{job=\"cadvisor\",host=\"$host\",name!=\"\"} > time() - 60) and on() (up{job=\"cadvisor\",host=\"$host\"} == 1)",
+          "expr": "max by(name, image, container_label_com_docker_compose_service) (container_last_seen{job=\"cadvisor\",host=\"$host\",name!=\"\"} > time() - 60) and on() (max(up{job=\"cadvisor\",host=\"$host\"}) == 1)",
           "format": "table",
           "instant": true,
           "range": false

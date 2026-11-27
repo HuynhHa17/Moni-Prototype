@@ -48,3 +48,37 @@ Alert bị ức chế vẫn có thể firing, không phải bằng chứng đã 
 CPU/disk/for khởi đầu là provisional, bắt đầu baseline từ M0/M1 và chốt
 ở BSL-01 với mentor/UTH. `predict_linear` minh họa ngoại suy disk với guard
 dữ liệu/xu hướng; NAB ngoại tuyến tùy chọn, không thay metric lab thật.
+
+## ADR-04 — Nâng cấp nền tảng chuẩn Production và lộ trình Pha A → Pha B (28/11/2026)
+
+Nhằm đáp ứng nghiệm thu UTH–VNPT (giữa tháng 01/2027) mà không tạo ngõ cụt khi
+mở rộng lên hạ tầng doanh nghiệp, nhóm chốt 6 quyết định bổ sung:
+
+1. **ADR-04.1 — Inventory & bộ nhãn chuẩn:** Tách `inventory.yml` (gitignored,
+   mẫu ở `inventory.example.yml`) khai báo target theo profile (`node`, `http`,
+   `cadvisor`, `snmp`, `redfish`); giữ tương thích ngược `.env` qua
+   `scripts/render_targets.py`. Mọi target đều có bộ nhãn `environment`, `site`,
+   `rack`, `team`, `host`, `target_id`. Luật `TargetMissing` so khớp theo
+   `(job, host, target_id)` để không bị che khi một host có nhiều target cùng job.
+2. **ADR-04.2 — Kho lịch sử PostgreSQL 16 (chốt):** Triển khai `postgres:16-alpine`
+   nội bộ trong Docker network VM1 cho `webhook` (`WEBHOOK_DSN`) và Grafana
+   native PostgreSQL datasource (`postgres-history`), bỏ giới hạn khóa file của
+   SQLite. Giữ nguyên schema `episodes`/`events` (khóa `fingerprint + starts_at`),
+   CLI `history.py` hỗ trợ cả `--dsn` và `--db`, và giữ backend SQLite nhẹ cho
+   unit test cục bộ không cần dịch vụ ngoài.
+3. **ADR-04.3 — Tách Pha A (2 VM lõi) → Pha B (VM Cloud & DC giả lập):** Hoàn
+   thiện trọn vẹn toàn bộ lớp lõi trên 2 VM cục bộ (nền, `podinfo` + SLO burn
+   rate, Container, Dự báo Disk 4-guard, Alertmanager Telegram + Inhibition +
+   Watchdog, Dashboard Lịch sử, Fault Harness, SEC-01, Backup/Restore) trước khi
+   mở rộng sang `VM Cloud` (qua WireGuard/Tailscale, cấm mở public `9100`, đặt
+   dịch vụ nhận Heartbeat khác miền lỗi vật lý) và `DC giả lập` (SNMP UPS/PDU +
+   Redfish BMC).
+4. **ADR-04.4 — Tự giám sát VM1 & TSDB có trần:** Bổ sung `node-exporter` nội
+   bộ trên VM1 (`host="monitoring-vm1"`), scrape `/metrics` của `webhook` và
+   `alertmanager`, đặt giới hạn tài nguyên container (`mem_limit`/`cpus`) và giữ
+   TSDB `60d` kèm trần `5GB`.
+5. **ADR-04.5 — Cảnh báo 4 tầng:** Ngưỡng tĩnh/lỗi cứng → Mất dữ liệu &
+   Self-Health → Triệu chứng dịch vụ (SLO Burn Rate có low-traffic guard) → Dự
+   báo cạn kiệt (`predict_linear` 4-guard).
+6. **ADR-04.6 — Kiểm chứng CI tự động:** Mọi commit/PR chạy tự động `unittest`,
+   `docker compose config -q`, `promtool check/test rules` và `amtool check-config`.

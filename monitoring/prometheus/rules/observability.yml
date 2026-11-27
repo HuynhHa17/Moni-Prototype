@@ -2,7 +2,7 @@ groups:
   - name: monitoring_coverage
     rules:
       - alert: ExporterDown
-        expr: up{job=~"node|cadvisor|blackbox-exporter"} == 0
+        expr: up{job=~"node|cadvisor|blackbox-exporter|webhook"} == 0
         for: 1m
         labels:
           severity: warning
@@ -26,13 +26,63 @@ groups:
           runbook: "docs/alerts.md#probescrapefailed"
 
       - alert: TargetMissing
-        expr: moni:target_expected unless on(job, host) up
+        expr: moni:target_expected unless on(job, host, target_id) up
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "Target {{ $labels.job }} của {{ $labels.host }} không còn trong Prometheus"
+          summary: "Target {{ $labels.job }} ({{ $labels.target_id }}) của {{ $labels.host }} không còn trong Prometheus"
           description: "Inventory kỳ vọng có target này nhưng Prometheus không còn series up (mất khỏi service discovery hoặc bị relabel loại). Không có dữ liệu để đánh giá; các cảnh báo khác của target có thể đã hết firing vì thiếu dữ liệu."
           action: "Chạy lại scripts/render_targets.py, kiểm tra .runtime/prometheus/targets và trang Targets của Prometheus; ExporterDown không thay được cảnh báo này."
           dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
           runbook: "docs/alerts.md#targetmissing"
+
+  - name: monitoring_self_health
+    rules:
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus tải lại cấu hình thất bại trên {{ $labels.instance }}"
+          description: "prometheus_config_last_reload_successful = 0 liên tục ít nhất 1 phút. Cấu hình hoặc file rule mới có lỗi cú pháp và chưa được áp dụng."
+          action: "Chạy promtool check config và promtool check rules, xem log container prometheus trên VM1 để sửa lỗi cú pháp."
+          dashboard: "/d/moni-vm2/?var-host=monitoring-vm1"
+          runbook: "docs/alerts.md#prometheusconfigreloadfailed"
+
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus gặp lỗi khi đánh giá rule trên {{ $labels.instance }}"
+          description: "Có {{ $value | printf \"%.0f\" }} lượt đánh giá rule thất bại trong 5 phút gần nhất. Một số cảnh báo hoặc recording rule có thể không được cập nhật."
+          action: "Kiểm tra trang Rules của Prometheus và log container prometheus để xác định biểu thức PromQL bị lỗi (như many-to-many)."
+          dashboard: "/d/moni-vm2/?var-host=monitoring-vm1"
+          runbook: "docs/alerts.md#prometheusruleevaluationfailures"
+
+      - alert: AlertmanagerNotificationFailed
+        expr: increase(alertmanager_notifications_failed_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager gửi thông báo thất bại tới {{ $labels.integration }}"
+          description: "Có {{ $value | printf \"%.0f\" }} lượt gửi cảnh báo thất bại trong 5 phút gần nhất tới kênh {{ $labels.integration }}. Người trực hoặc kho lịch sử có thể bỏ lỡ sự cố."
+          action: "Kiểm tra log container alertmanager, sức khỏe container webhook (/health) hoặc token/mạng ra kênh Telegram."
+          dashboard: "/d/moni-vm2/?var-host=monitoring-vm1"
+          runbook: "docs/alerts.md#alertmanagernotificationfailed"
+
+      - alert: PrometheusTSDBNearCap
+        expr: (prometheus_tsdb_storage_blocks_bytes + prometheus_tsdb_wal_storage_size_bytes) / (5 * 1024 * 1024 * 1024) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dung lượng TSDB của Prometheus đã vượt 85% trần 5GB"
+          description: "TSDB đang chiếm {{ $value | humanizePercentage }} giới hạn 5GB (--storage.tsdb.retention.size). Prometheus có thể phải cắt bớt dữ liệu sớm hơn 60 ngày."
+          action: "Kiểm tra số lượng series (TSDB Status), các label có cardinality cao hoặc tăng dung lượng trần nếu đĩa VM1 còn đủ."
+          dashboard: "/d/moni-vm2/?var-host=monitoring-vm1"
+          runbook: "docs/alerts.md#prometheustsdbnearcap"

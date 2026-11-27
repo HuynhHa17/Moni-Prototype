@@ -10,7 +10,9 @@ RUN useradd --system --uid 10001 --no-create-home webhook \
     && chown webhook:webhook /data
 
 WORKDIR /app
-COPY app.py store.py history.py schema.sql ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py store.py history.py schema.sql schema_pg.sql ./
 
 USER webhook
 EXPOSE 8080

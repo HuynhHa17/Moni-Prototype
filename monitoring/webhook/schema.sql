@@ -1,5 +1,3 @@
-PRAGMA user_version = 1;
-
 CREATE TABLE IF NOT EXISTS episodes (
     id                INTEGER PRIMARY KEY,
     fingerprint       TEXT    NOT NULL,

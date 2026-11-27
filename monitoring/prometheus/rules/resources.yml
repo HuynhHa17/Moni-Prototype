@@ -1,14 +1,36 @@
 groups:
+  - name: host_resource_recordings
+    rules:
+      - record: node:cpu_usage_ratio:rate2m
+        expr: |
+          1 - avg by(job, instance, host, environment, site, rack, team) (
+            rate(node_cpu_seconds_total{job="node", mode="idle"}[2m])
+          )
+
+      - record: node:memory_usage_ratio
+        expr: |
+          1 - (
+            node_memory_MemAvailable_bytes{job="node"}
+            / (node_memory_MemTotal_bytes{job="node"} > 0)
+          )
+
+      - record: node:filesystem_usage_ratio
+        expr: |
+          1 - (
+            node_filesystem_avail_bytes{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"}
+            / (node_filesystem_size_bytes{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"} > 0)
+          )
+
   - name: host_resources
     rules:
       - alert: HostHighCpu
         expr: |
           (
-            100 * (1 - avg by(instance, host, environment) (
+            100 * (1 - avg by(job, instance, host, environment) (
               rate(node_cpu_seconds_total{job="node", mode="idle"}[2m])
             )) > 85
           )
-          and on(instance) (up{job="node"} == 1)
+          and on(job, instance, host) (up{job="node"} == 1)
         for: 3m
         labels:
           severity: warning
@@ -19,6 +41,25 @@ groups:
           dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
           runbook: "docs/alerts.md#hosthighcpu"
 
+      - alert: HostHighMemory
+        expr: |
+          (
+            100 * (1 -
+              node_memory_MemAvailable_bytes{job="node"}
+              / (node_memory_MemTotal_bytes{job="node"} > 0)
+            ) > 90
+          )
+          and on(job, instance, host) (up{job="node"} == 1)
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RAM trên {{ $labels.host }} vượt 90%"
+          description: "RAM khả dụng còn dưới 10% (đã dùng {{ $value | printf \"%.0f\" }}%) liên tục ít nhất 3 phút. Host có nguy cơ kích hoạt OOM killer nếu bộ nhớ tiếp tục tăng."
+          action: "Trên {{ $labels.host }} chạy free -h và ps -eo pid,comm,%mem --sort=-%mem | head hoặc docker stats --no-stream để xác định tiến trình/container chiếm RAM."
+          dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
+          runbook: "docs/alerts.md#hosthighmemory"
+
       - alert: FilesystemAlmostFull
         expr: |
           (
@@ -27,7 +68,7 @@ groups:
               / (node_filesystem_size_bytes{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"} > 0)
             ) > 90
           )
-          and on(instance) (up{job="node"} == 1)
+          and on(job, instance, host) (up{job="node"} == 1)
         for: 2m
         labels:
           severity: warning
@@ -37,3 +78,22 @@ groups:
           action: "Trên {{ $labels.host }} chạy df -h {{ $labels.mountpoint }} và du -xh --max-depth=1 {{ $labels.mountpoint }} | sort -h | tail để tìm thư mục lớn; xác nhận mount đúng trước khi xóa dữ liệu."
           dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
           runbook: "docs/alerts.md#filesystemalmostfull"
+
+      - alert: FilesystemInodesAlmostFull
+        expr: |
+          (
+            100 * (1 -
+              node_filesystem_files_free{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"}
+              / (node_filesystem_files{job="node", fstype!~"tmpfs|devtmpfs|overlay|squashfs|nsfs|ramfs|fuse.*"} > 0)
+            ) > 90
+          )
+          and on(job, instance, host) (up{job="node"} == 1)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Inode trên {{ $labels.mountpoint }} ({{ $labels.host }}) dùng trên 90%"
+          description: "{{ $labels.mountpoint }} ({{ $labels.device }}, {{ $labels.fstype }}) đã dùng {{ $value | printf \"%.0f\" }}% số inode liên tục ít nhất 2 phút. Ứng dụng có thể báo hết đĩa dù dung lượng byte vẫn còn trống."
+          action: "Trên {{ $labels.host }} chạy df -i {{ $labels.mountpoint }} và tìm thư mục chứa nhiều file nhỏ bất thường để dọn dẹp an toàn."
+          dashboard: "/d/moni-vm2/?var-host={{ $labels.host }}"
+          runbook: "docs/alerts.md#filesysteminodesalmostfull"

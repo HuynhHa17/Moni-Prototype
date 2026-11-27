@@ -1,0 +1,51 @@
+# Copy to inventory.yml at the repository root (gitignored) and fill in lab IPs.
+# Never commit real lab IPs, tokens or passwords to Git.
+# Reference: ADR-04.1 (docs/architecture-decision.md).
+
+environment: lab
+
+defaults:
+  site: onprem-lab
+  rack: rack-01
+  team: infra
+
+hosts:
+  - host: workload-vm2
+    address: CHANGE_ME
+    site: onprem-lab
+    rack: rack-01
+    team: app
+    profiles: [node, http, cadvisor]
+    node_port: 9100
+    cadvisor_port: 8081
+    http_probes:
+      - service: moni-nginx
+        port: 8080
+        path: /health
+
+  # Phase B (uncomment when expanding to VM Cloud and simulated DC):
+  # - host: cloud-vm1
+  #   address: 10.10.0.2
+  #   site: cloud-trial
+  #   rack: cloud
+  #   team: infra
+  #   profiles: [node]
+  #   node_port: 9100
+  #
+  # - host: dc-ups-01
+  #   address: 192.0.2.50
+  #   site: onprem-lab
+  #   rack: rack-01
+  #   team: idc
+  #   profiles: [snmp]
+  #   snmp_port: 1161
+  #   snmp_module: ups_mib
+  #
+  # - host: dc-bmc-01
+  #   address: 192.0.2.50
+  #   site: onprem-lab
+  #   rack: rack-01
+  #   team: idc
+  #   profiles: [redfish]
+  #   redfish_port: 8000
+

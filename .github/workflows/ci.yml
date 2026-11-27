@@ -1,0 +1,55 @@
+name: CI Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run root tests
+        run: python -m unittest discover -s tests -v
+      - name: Run webhook tests
+        run: python -m unittest discover -s monitoring/webhook/tests -v
+
+  config-and-rules:
+    name: Prometheus, Alertmanager & Compose Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render sample targets for validation
+        run: |
+          python3 scripts/render_targets.py \
+            --inventory-file <(sed 's/CHANGE_ME/192.0.2.21/g' inventory.example.yml) \
+            --output-dir .runtime/prometheus/targets
+      - name: Validate Docker Compose files
+        run: |
+          cp .env.example .env
+          docker compose -f monitoring/compose.yaml config -q
+          docker compose -f workload/compose.yaml config -q
+      - name: Validate Prometheus config and rules with promtool
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            -v "$PWD/.runtime/prometheus/targets:/etc/prometheus/targets:ro" \
+            prom/prometheus:v3.5.0 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0 \
+            test rules /etc/prometheus/tests/*.test.yml
+      - name: Validate Alertmanager config with amtool
+        run: |
+          docker run --rm --entrypoint amtool \
+            -v "$PWD/monitoring/alertmanager:/etc/alertmanager:ro" \
+            prom/alertmanager:v0.28.1 \
+            check-config /etc/alertmanager/alertmanager.yml
+

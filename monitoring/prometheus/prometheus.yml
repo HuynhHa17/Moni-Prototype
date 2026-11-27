@@ -14,8 +14,48 @@ scrape_configs:
     static_configs:
       - targets:
           - localhost:9090
+        labels:
+          host: monitoring-vm1
+          environment: lab
+          site: onprem-lab
+          rack: rack-01
+          team: infra
+
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+          - alertmanager:9093
+        labels:
+          host: monitoring-vm1
+          environment: lab
+          site: onprem-lab
+          rack: rack-01
+          team: infra
+
+  - job_name: webhook
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - webhook:8080
+        labels:
+          host: monitoring-vm1
+          environment: lab
+          site: onprem-lab
+          rack: rack-01
+          team: infra
+          target_id: webhook-monitoring-vm1
 
   - job_name: node
+    static_configs:
+      - targets:
+          - node-exporter:9100
+        labels:
+          host: monitoring-vm1
+          environment: lab
+          site: onprem-lab
+          rack: rack-01
+          team: infra
+          target_id: node-monitoring-vm1
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/node.json
@@ -35,6 +75,12 @@ scrape_configs:
     static_configs:
       - targets:
           - blackbox:9115
+        labels:
+          host: monitoring-vm1
+          environment: lab
+          site: onprem-lab
+          rack: rack-01
+          team: infra
 
   - job_name: http
     metrics_path: /probe

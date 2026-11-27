@@ -13,17 +13,28 @@ spec.loader.exec_module(render)
 
 
 class TargetRenderingTests(unittest.TestCase):
-    def test_individual_lab_uses_own_address(self):
+    def test_individual_lab_uses_own_address_and_standard_labels(self):
         result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_HOST": "alice-workload", "WORKLOAD_HTTP_PORT": "8181"})
-        self.assertEqual(result["node.json"], [{"targets": ["192.0.2.21:9100"], "labels": {"host": "alice-workload", "environment": "lab"}}])
+        self.assertEqual(result["node.json"], [{
+            "targets": ["192.0.2.21:9100"],
+            "labels": {
+                "host": "alice-workload",
+                "environment": "lab",
+                "site": "onprem-lab",
+                "rack": "rack-01",
+                "team": "infra",
+                "target_id": "node-alice-workload",
+            },
+        }])
         self.assertEqual(result["http.json"][0]["targets"], ["http://192.0.2.21:8181/health"])
+        self.assertEqual(result["http.json"][0]["labels"]["target_id"], "http-alice-workload-moni-nginx")
 
     def test_integration_lab_keeps_separate_hosts(self):
         result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_VM3_IP": "192.0.2.22"})
         self.assertEqual([entry["labels"]["host"] for entry in result["node.json"]], ["workload-vm2", "workload-vm3"])
         self.assertEqual(len(result["http.json"]), 2)
 
-    def test_inventory_lists_every_expected_target(self):
+    def test_inventory_lists_every_expected_target_with_target_id(self):
         result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_VM3_IP": "192.0.2.22"})
         rules = result["expected.rules.yml"]["groups"][0]["rules"]
         expected = {(rule["labels"]["job"], rule["labels"]["host"]) for rule in rules}
@@ -32,12 +43,55 @@ class TargetRenderingTests(unittest.TestCase):
         for rule in rules:
             self.assertEqual(rule["record"], "moni:target_expected")
             self.assertEqual(rule["expr"], "vector(1)")
+            self.assertIn("target_id", rule["labels"])
+            self.assertIn("site", rule["labels"])
+            self.assertIn("rack", rule["labels"])
+            self.assertIn("team", rule["labels"])
+        self.assertNotIn("192.0.2", json.dumps(result["expected.rules.yml"]))
+
+    def test_inventory_yaml_supports_profiles_and_multiple_http_probes(self):
+        yaml_text = """
+environment: staging
+defaults:
+  site: onprem-lab
+  rack: rack-01
+  team: infra
+hosts:
+  - host: workload-vm2
+    address: 192.0.2.21
+    team: app
+    profiles: [node, http, cadvisor]
+    cadvisor_port: 8081
+    http_probes:
+      - service: moni-nginx
+        port: 8080
+        path: /health
+      - service: podinfo
+        port: 8080
+        path: /app/healthz
+  - host: dc-ups-01
+    address: 192.0.2.50
+    team: idc
+    profiles: [snmp]
+    snmp_port: 1161
+    snmp_module: ups_mib
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            inv_path = Path(directory) / "inventory.yml"
+            inv_path.write_text(yaml_text, encoding="utf-8")
+            result = render.build_targets_from_inventory(render.read_inventory(inv_path))
+        self.assertEqual(len(result["node.json"]), 1)
+        self.assertEqual(len(result["http.json"]), 2)
+        http_ids = [item["labels"]["target_id"] for item in result["http.json"]]
+        self.assertEqual(http_ids, ["http-workload-vm2-moni-nginx", "http-workload-vm2-podinfo"])
+        self.assertEqual(result["snmp.json"][0]["targets"], ["192.0.2.50:1161"])
+        self.assertEqual(result["snmp.json"][0]["labels"]["team"], "idc")
         self.assertNotIn("192.0.2", json.dumps(result["expected.rules.yml"]))
 
     def test_cadvisor_target_uses_own_port(self):
         result = render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_CADVISOR_PORT": "8090"})
-        self.assertEqual(result["cadvisor.json"], [{"targets": ["192.0.2.21:8090"],
-                                                    "labels": {"host": "workload-vm2", "environment": "lab"}}])
+        self.assertEqual(result["cadvisor.json"][0]["targets"], ["192.0.2.21:8090"])
+        self.assertEqual(result["cadvisor.json"][0]["labels"]["target_id"], "cadvisor-workload-vm2")
         with self.assertRaises(ValueError):
             render.build_targets({"WORKLOAD_IP": "192.0.2.21", "WORKLOAD_CADVISOR_PORT": "8080"})
 

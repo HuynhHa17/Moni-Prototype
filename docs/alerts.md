@@ -7,10 +7,16 @@ Ngưỡng và `for` là giá trị khởi đầu cho lab, chốt lại ở BSL-0
 |---|---|---|---|---|
 | ServiceHttpDown | critical | `probe_success == 0` và `up{job="http"} == 1` | 1m | host, service, instance |
 | HostHighCpu | warning | CPU host > 85% (trung bình 2 phút) | 3m | host, instance |
+| HostHighMemory | warning | RAM đã dùng (`1 − MemAvailable/MemTotal`) > 90% | 3m | host, instance |
 | FilesystemAlmostFull | warning | `1 − avail/size` > 90% | 2m | host, mountpoint, device |
-| ExporterDown | warning | `up{job=~"node\|cadvisor\|blackbox-exporter"} == 0` | 1m | job, instance, host |
+| FilesystemInodesAlmostFull | warning | `1 − files_free/files` > 90% | 2m | host, mountpoint, device |
+| ExporterDown | warning | `up{job=~"node\|cadvisor\|blackbox-exporter\|webhook"} == 0` | 1m | job, instance, host |
 | ProbeScrapeFailed | warning | `up{job="http"} == 0` | 1m | host, instance |
-| TargetMissing | warning | target trong inventory không còn series `up` | 2m | job, host |
+| TargetMissing | warning | target trong inventory không còn series `up` theo `(job, host, target_id)` | 2m | job, host, target_id |
+| PrometheusConfigReloadFailed | warning | `prometheus_config_last_reload_successful == 0` | 1m | instance |
+| PrometheusRuleEvaluationFailures | warning | `increase(prometheus_rule_evaluation_failures_total[5m]) > 0` | 2m | instance |
+| AlertmanagerNotificationFailed | critical | `increase(alertmanager_notifications_failed_total[5m]) > 0` | 2m | integration |
+| PrometheusTSDBNearCap | warning | TSDB blocks + WAL > 85% trần 5GB | 5m | instance |
 
 ## Cách đọc một cảnh báo
 
@@ -85,3 +91,45 @@ Ngưỡng và `for` là giá trị khởi đầu cho lab, chốt lại ở BSL-0
 - **Không kết luận:** host hay dịch vụ ổn vì các cảnh báo khác đã hết firing;
   chúng hết vì không còn dữ liệu.
 - **Hết cảnh báo:** khi series `up` của target xuất hiện lại.
+
+## HostHighMemory
+
+- **Quan sát:** RAM khả dụng trên host giảm dưới 10% (đã dùng trên 90%) liên tục 3 phút.
+- **Kiểm tra đầu tiên:** chạy `free -h`, `ps -eo pid,comm,%mem --sort=-%mem | head` hoặc `docker stats --no-stream` trên host đích.
+- **Không kết luận:** dịch vụ đã chết OOM nếu container và probe HTTP vẫn bình thường.
+- **Hết cảnh báo:** khi mức sử dụng RAM xuống dưới 90% với `up = 1`.
+
+## FilesystemInodesAlmostFull
+
+- **Quan sát:** tỷ lệ inode đã cấp phát trên `mountpoint` vượt 90% liên tục 2 phút.
+- **Kiểm tra đầu tiên:** chạy `df -i <mountpoint>` và tìm thư mục chứa nhiều file nhỏ (log/cache/tmp) để xử lý an toàn.
+- **Không kết luận:** dung lượng byte cũng đã đầy; hai chỉ số độc lập nhau.
+- **Hết cảnh báo:** khi tỷ lệ sử dụng inode xuống dưới 90% với `up = 1`.
+
+## PrometheusConfigReloadFailed
+
+- **Quan sát:** lần tải lại cấu hình gần nhất của Prometheus thất bại (`prometheus_config_last_reload_successful == 0`).
+- **Kiểm tra đầu tiên:** chạy `promtool check config` và `promtool check rules`, kiểm tra log container `prometheus` trên VM1.
+- **Không kết luận:** Prometheus đã dừng; Prometheus vẫn chạy với bản cấu hình hợp lệ trước đó.
+- **Hết cảnh báo:** sau khi sửa lỗi cú pháp và reload cấu hình thành công.
+
+## PrometheusRuleEvaluationFailures
+
+- **Quan sát:** Prometheus gặp lỗi khi đánh giá rule trong 5 phút gần nhất.
+- **Kiểm tra đầu tiên:** mở trang Rules của Prometheus và xem log container `prometheus` để tìm biểu thức PromQL lỗi (thường do xung đột nhãn `many-to-many`).
+- **Không kết luận:** toàn bộ cảnh báo bị mất; chỉ rule lỗi không đánh giá được.
+- **Hết cảnh báo:** khi không còn lượt đánh giá lỗi trong cửa sổ 5 phút.
+
+## AlertmanagerNotificationFailed
+
+- **Quan sát:** Alertmanager không gửi được thông báo tới kênh tích hợp (`webhook`, `telegram`, ...) trong 5 phút gần nhất.
+- **Kiểm tra đầu tiên:** kiểm tra log `alertmanager`, trạng thái `webhook` (`/health`), sức khỏe PostgreSQL hoặc kết nối mạng/token Telegram.
+- **Không kết luận:** sự cố đã được xử lý; người trực hoặc kho lịch sử có thể đang bị thiếu bản ghi.
+- **Hết cảnh báo:** khi không còn lượt gửi thất bại trong cửa sổ 5 phút.
+
+## PrometheusTSDBNearCap
+
+- **Quan sát:** tổng dung lượng blocks + WAL của Prometheus TSDB vượt 85% mức trần `5GB`.
+- **Kiểm tra đầu tiên:** mở trang TSDB Status của Prometheus kiểm tra số series và cardinality của các nhãn; kiểm tra dung lượng đĩa còn lại trên VM1.
+- **Không kết luận:** Prometheus đã ngừng ghi; TSDB sẽ tự cắt dữ liệu cũ sớm hơn 60 ngày khi chạm trần.
+- **Hết cảnh báo:** khi dung lượng TSDB giảm xuống dưới 85% mức trần.

@@ -14,9 +14,9 @@ flowchart LR
     grafana[Grafana]
     alertmanager[Alertmanager]
     webhook[Python Webhook nội bộ]
-    sqlite[(SQLite)]
+    postgres[(PostgreSQL 16)]
     history[CLI và CSV]
-    selfnode[Node Exporter VM1 - M3]
+    selfnode[Node Exporter VM1]
   end
   subgraph vm2[VM2 Workload]
     nginx2[Nginx proxy]
@@ -45,8 +45,9 @@ flowchart LR
   operator -->|Xem dashboard| grafana
   prometheus -->|Alert firing và resolved| alertmanager
   alertmanager -->|POST alerts, gửi resolved| webhook
-  webhook -->|Ghi episode và sự kiện| sqlite
-  history -->|Đọc và xuất| sqlite
+  webhook -->|Ghi episode và sự kiện| postgres
+  grafana -->|Native SQL query| postgres
+  history -->|Đọc và xuất| postgres
   operator -->|Quyền quản trị VM1| history
 ```
 

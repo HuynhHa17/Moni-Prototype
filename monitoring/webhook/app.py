@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import signal
 import sqlite3
+import threading
+from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import store
@@ -13,6 +16,62 @@ MAX_BODY = 1024 * 1024  # 1 MiB, đủ cho một notification
 HEALTH_SCOPE = "tiến trình webhook chạy và CSDL mở được, lấy được khóa ghi; không kiểm tra Alertmanager hay Prometheus"
 
 log = logging.getLogger("webhook")
+
+
+class Metrics:
+    """Bộ đếm Prometheus nội bộ cho tiến trình webhook."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.requests = Counter()
+        self.alerts = Counter()
+        self.db_errors = 0
+        self.truncated_alerts = 0
+
+    def inc_request(self, path: str, code: int) -> None:
+        with self._lock:
+            self.requests[(path, str(code))] += 1
+
+    def inc_outcomes(self, outcomes) -> None:
+        with self._lock:
+            for outcome in outcomes:
+                self.alerts[outcome] += 1
+
+    def inc_db_error(self) -> None:
+        with self._lock:
+            self.db_errors += 1
+
+    def inc_truncated(self, count: int) -> None:
+        if count > 0:
+            with self._lock:
+                self.truncated_alerts += count
+
+    def render(self) -> str:
+        lines = [
+            "# HELP moni_webhook_requests_total Total HTTP requests handled by moni-webhook.",
+            "# TYPE moni_webhook_requests_total counter",
+        ]
+        with self._lock:
+            for (path, code), value in sorted(self.requests.items()):
+                lines.append(f'moni_webhook_requests_total{{path="{path}",code="{code}"}} {value}')
+            lines.extend([
+                "# HELP moni_webhook_alerts_total Total alerts recorded by outcome.",
+                "# TYPE moni_webhook_alerts_total counter",
+            ])
+            for outcome, value in sorted(self.alerts.items()):
+                lines.append(f'moni_webhook_alerts_total{{outcome="{outcome}"}} {value}')
+            lines.extend([
+                "# HELP moni_webhook_db_errors_total Total database errors encountered by moni-webhook.",
+                "# TYPE moni_webhook_db_errors_total counter",
+                f"moni_webhook_db_errors_total {self.db_errors}",
+                "# HELP moni_webhook_truncated_alerts_total Total alerts truncated by Alertmanager payloads.",
+                "# TYPE moni_webhook_truncated_alerts_total counter",
+                f"moni_webhook_truncated_alerts_total {self.truncated_alerts}",
+            ])
+        return "\n".join(lines) + "\n"
+
+
+METRICS = Metrics()
 
 
 class PayloadError(ValueError):
@@ -63,8 +122,8 @@ def normalize_alert(alert, index):
     }
 
 
-def parse_payload(body):
-    """Đọc body JSON, trả về (group_key, danh sách alert đã chuẩn hóa)."""
+def parse_payload_with_meta(body):
+    """Đọc body JSON, trả về (group_key, danh sách alert đã chuẩn hóa, truncated_alerts)."""
     try:
         data = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -79,15 +138,29 @@ def parse_payload(body):
     if not isinstance(alerts, list) or not alerts:
         raise PayloadError("alerts phải là danh sách không rỗng")
 
+    truncated = data.get("truncatedAlerts") or 0
+    if not isinstance(truncated, int) or truncated < 0:
+        truncated = 0
+
     # Trạng thái lấy từ TỪNG alert, không lấy data["status"] của cả nhóm.
     normalized = [normalize_alert(a, i) for i, a in enumerate(alerts)]
-    return data.get("groupKey"), normalized
+    return data.get("groupKey"), normalized, truncated
+
+
+def parse_payload(body):
+    """Đọc body JSON, trả về (group_key, danh sách alert đã chuẩn hóa)."""
+    group_key, normalized, _ = parse_payload_with_meta(body)
+    return group_key, normalized
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "moni-webhook"
 
-    def _reply(self, code, payload):
+    def _metrics(self) -> Metrics:
+        return getattr(self.server, "metrics", METRICS)
+
+    def _reply(self, code, payload, path_label=None):
+        self._metrics().inc_request(path_label or self.path, code)
         body = json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -96,12 +169,23 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path == "/metrics":
+            body = self._metrics().render().encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if self.path != "/health":
             self._reply(404, {"error": "không có đường dẫn này"})
             return
+
         try:
             store.check(self.server.db_path)
-        except sqlite3.Error as exc:
+        except (sqlite3.Error, store.StoreError) as exc:
+            self._metrics().inc_db_error()
             log.error("health: CSDL lỗi: %s", exc)
             self._reply(503, {"status": "error", "db": "không mở hoặc không ghi được", "scope": HEALTH_SCOPE})
             return
@@ -112,17 +196,26 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(404, {"error": "không có đường dẫn này"})
             return
 
-        length = int(self.headers.get("Content-Length") or 0)
+        raw_length = self.headers.get("Content-Length")
+        try:
+            length = int(raw_length) if raw_length is not None else 0
+        except ValueError:
+            self._reply(400, {"error": "Content-Length không hợp lệ"})
+            return
         if length <= 0 or length > MAX_BODY:
             self._reply(400, {"error": "Content-Length thiếu hoặc quá lớn"})
             return
 
         try:
-            group_key, alerts = parse_payload(self.rfile.read(length))
+            group_key, alerts, truncated = parse_payload_with_meta(self.rfile.read(length))
         except PayloadError as exc:
             log.warning("từ chối payload: %s", exc)
             self._reply(400, {"error": str(exc)})
             return
+
+        if truncated > 0:
+            self._metrics().inc_truncated(truncated)
+            log.warning("Alertmanager cắt bớt %d alert trong notification groupKey=%s", truncated, group_key)
 
         try:
             conn = store.connect(self.server.db_path)
@@ -130,11 +223,13 @@ class Handler(BaseHTTPRequestHandler):
                 outcomes = store.record_alerts(conn, group_key, alerts)
             finally:
                 conn.close()
-        except sqlite3.Error as exc:
+        except Exception as exc:
+            self._metrics().inc_db_error()
             log.error("không ghi được CSDL: %s", exc)
             self._reply(500, {"error": "không ghi được CSDL"})
             return
 
+        self._metrics().inc_outcomes(outcomes)
         for a, outcome in zip(alerts, outcomes):
             log.info(
                 "lưu alert outcome=%s status=%s alertname=%s host=%s fingerprint=%s startsAt=%s endsAt=%s",
@@ -147,18 +242,38 @@ class Handler(BaseHTTPRequestHandler):
         log.debug("%s - %s", self.address_string(), fmt % args)
 
 
+def _target_label(db_target: str) -> str:
+    if store.is_postgres(db_target):
+        return "postgresql://<configured>"
+    return db_target
+
+
 def main():
     logging.basicConfig(
         level=os.environ.get("WEBHOOK_LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(message)s",
     )
     port = int(os.environ.get("WEBHOOK_PORT", "8080"))
-    db_path = os.environ.get("WEBHOOK_DB", "history.db")
-    store.connect(db_path).close()
+    db_target = os.environ.get("WEBHOOK_DSN") or os.environ.get("WEBHOOK_DB", "history.db")
+    store.init_db(db_target)
+
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    server.db_path = db_path
-    log.info("webhook lắng nghe cổng %s, đường dẫn POST /alerts, CSDL %s", port, db_path)
-    server.serve_forever()
+    server.db_path = db_target
+    server.metrics = METRICS
+
+    def _handle_signal(signum, _frame):
+        log.info("nhận tín hiệu %s, đang dừng webhook an toàn...", signum)
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, _handle_signal)
+
+    log.info("webhook lắng nghe cổng %s, đường dẫn POST /alerts, GET /health, GET /metrics, CSDL %s",
+             port, _target_label(db_target))
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

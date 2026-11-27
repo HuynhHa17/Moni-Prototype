@@ -99,3 +99,17 @@ PR code không đóng tự động task vận hành/sơ đồ/chuyển giao. Đ�
 [yêu cầu](requirements.md) và [kết quả kiểm tra](validation.md). Lưu commit,
 lab, lệnh, giá trị trước/trong/sau và timestamp thực tế; không dựng lại lịch sử.
 Dashboard Host ở M0 mới là nền; Container/Service/Tổng quan thuộc M2.
+
+## Cập nhật lộ trình 7 tuần (28/11/2026 – 15/01/2027, theo ADR-04)
+
+Ưu tiên hoàn thành trọn vẹn **Pha A (2 VM lõi)** trước, sau đó mở rộng sang **Pha B (`VM Cloud` + `DC giả lập`)**:
+
+| Mốc | Giai đoạn | Hạn chốt | Đầu ra chính |
+| --- | --- | --- | --- |
+| M2a | Tuần 1 (28/11 – 04/12) | 2026-12-04 | ADR-04, `inventory.yml`, vá nợ nền PromQL/Dashboard, PostgreSQL 16 + Webhook `/metrics`, tự giám sát VM1, CI |
+| M2b | Tuần 2 (05/12 – 11/12) | 2026-12-11 | `podinfo` + tải nền, SLO Burn Rate, cảnh báo Container, 4 Dashboard cốt lõi |
+| M3a | Tuần 3 (12/12 – 18/12) | 2026-12-18 | `disktest.sh drip/burst`, Dự báo Disk 4-guard, `HostDown` |
+| M3b | Tuần 4 (19/12 – 25/12) | 2026-12-25 | Alertmanager Telegram + Inhibition + Watchdog, Dashboard Lịch sử PostgreSQL |
+| M4a | Tuần 5 (26/12 – 01/01) | 2027-01-01 | Pha B: `VM Cloud` (VPN + Heartbeat ngoài miền lỗi) & `DC giả lập` (SNMP + Redfish) |
+| M4b | Tuần 6 (02/01 – 08/01) | 2027-01-08 | Feature Freeze, Fault Harness JSONL, Positive/Negative KPI, chốt BSL-01 |
+| M5 | Tuần 7 (09/01 – 15/01) | 2027-01-15 | SEC-01, Backup/Restore `pg_dump`, dựng lại sạch HND-02, Runbook & Production Roadmap |

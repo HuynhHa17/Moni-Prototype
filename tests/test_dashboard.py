@@ -77,8 +77,12 @@ class HostDashboardTests(unittest.TestCase):
         for panel in (cpu, ram, table):
             expression = panel["targets"][0]["expr"]
             self.assertIn('name!=""', expression)
-            self.assertIn('(up{job="cadvisor",host="$host"} == 1)', expression)
+            self.assertIn('(max(up{job="cadvisor",host="$host"}) == 1)', expression)
         self.assertFalse(cpu["fieldConfig"]["defaults"]["custom"]["spanNulls"])
+
+    def test_disk_panel_excludes_ramfs_and_fuse_matching_rules(self):
+        expression = self.panels[6]["targets"][0]["expr"]
+        self.assertIn('ramfs|fuse.*', expression)
 
 
     def test_panels_do_not_overlap_and_fit_the_grid(self):

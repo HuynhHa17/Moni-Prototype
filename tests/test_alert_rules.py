@@ -1,9 +1,12 @@
+import json
 from pathlib import Path
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES = sorted((ROOT / "monitoring/prometheus/rules").glob("*.yml"))
+DASHBOARDS = sorted((ROOT / "monitoring/grafana/dashboards").glob("*.json"))
+DASHBOARD_UIDS = {json.loads(p.read_text(encoding="utf-8"))["uid"] for p in DASHBOARDS}
 CATALOG = (ROOT / "docs/alerts.md").read_text(encoding="utf-8")
 REQUIRED = ("summary", "description", "action", "dashboard", "runbook")
 
@@ -28,7 +31,7 @@ def alerts():
 
 class AlertContentTests(unittest.TestCase):
     def test_rules_are_found(self):
-        self.assertGreaterEqual(len(list(alerts())), 6)
+        self.assertGreaterEqual(len(list(alerts())), 10)
 
     def test_every_alert_has_actionable_content(self):
         for name, annotations in alerts():
@@ -41,10 +44,13 @@ class AlertContentTests(unittest.TestCase):
                 self.assertEqual(annotations["runbook"], f"docs/alerts.md#{name.lower()}")
                 self.assertIn(f"\n## {name}\n", CATALOG)
 
-    def test_dashboard_link_is_relative(self):
+    def test_dashboard_link_points_to_existing_dashboard_uid(self):
+        self.assertTrue(DASHBOARD_UIDS, "No provisioned Grafana dashboards found")
         for name, annotations in alerts():
             with self.subTest(alert=name):
-                self.assertTrue(annotations["dashboard"].startswith("/d/moni-vm2/"))
+                match = re.match(r"^/d/([A-Za-z0-9_-]+)/", annotations["dashboard"])
+                self.assertIsNotNone(match, annotations["dashboard"])
+                self.assertIn(match.group(1), DASHBOARD_UIDS, annotations["dashboard"])
 
     def test_content_has_no_fixed_address(self):
         address = re.compile(r"\b\d{1,3}(\.\d{1,3}){3}\b|https?://")
