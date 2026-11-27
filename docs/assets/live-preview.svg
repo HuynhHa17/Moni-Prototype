@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="1200" height="500" role="img" aria-label="Moni-Prototype Grafana Host Overview v6 and PostgreSQL Incident Stream">
+  <defs>
+    <linearGradient id="cpuArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+    </linearGradient>
+    <linearGradient id="memArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+    </linearGradient>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .live-pulse { transform-origin: 1110px 23px; animation: ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+      .draw-cpu { stroke-dasharray: 760; stroke-dashoffset: 760; animation: draw 2s ease-out forwards 0.2s; }
+      .draw-mem { stroke-dasharray: 760; stroke-dashoffset: 760; animation: draw 2s ease-out forwards 0.45s; }
+      .row-1 { opacity: 0; animation: fadeRow 0.45s ease forwards 0.4s; }
+      .row-2 { opacity: 0; animation: fadeRow 0.45s ease forwards 0.75s; }
+      .row-3 { opacity: 0; animation: fadeRow 0.45s ease forwards 1.1s; }
+      .row-4 { opacity: 0; animation: fadeRow 0.45s ease forwards 1.45s; }
+      @keyframes ping {
+        0% { transform: scale(1); opacity: 0.75; }
+        75%, 100% { transform: scale(2.4); opacity: 0; }
+      }
+      @keyframes draw { to { stroke-dashoffset: 0; } }
+      @keyframes fadeRow {
+        from { opacity: 0; transform: translateX(6px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+    </style>
+  </defs>
+
+  <!-- Outer Frame -->
+  <rect x="1" y="1" width="1198" height="498" rx="14" fill="#090d16" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Top Grafana Chrome Bar -->
+  <path d="M1 15 Q1 1 15 1 H1185 Q1199 1 1199 15 V46 H1 Z" fill="#0f1523"/>
+  <line x1="1" y1="46" x2="1199" y2="46" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- Left Breadcrumb -->
+  <circle cx="22" cy="23" r="4.5" fill="#334155"/>
+  <circle cx="38" cy="23" r="4.5" fill="#334155"/>
+  <circle cx="54" cy="23" r="4.5" fill="#334155"/>
+  <line x1="72" y1="14" x2="72" y2="32" stroke="#1e293b" stroke-width="1"/>
+  <text x="86" y="27" class="sans" font-size="12.5" fill="#64748b">Dashboards  /</text>
+  <text x="176" y="27" class="sans" font-size="12.5" font-weight="600" fill="#f1f5f9">Moni-Prototype · Host Overview v6</text>
+
+  <!-- Right Controls -->
+  <rect x="782" y="11" width="166" height="24" rx="5" fill="#111827" stroke="#1e293b"/>
+  <text x="794" y="27" class="mono" font-size="11" fill="#64748b">host</text>
+  <text x="832" y="27" class="mono" font-size="11" fill="#38bdf8">workload-vm2</text>
+
+  <rect x="958" y="11" width="132" height="24" rx="5" fill="#111827" stroke="#1e293b"/>
+  <text x="972" y="27" class="mono" font-size="11" fill="#cbd5e1">Last 1h · 15s</text>
+
+  <rect x="1098" y="11" width="84" height="24" rx="5" fill="#064e3b" fill-opacity="0.45" stroke="#10b981" stroke-opacity="0.4"/>
+  <circle cx="1110" cy="23" r="4" fill="#10b981" fill-opacity="0.45" class="live-pulse"/>
+  <circle cx="1110" cy="23" r="3.2" fill="#10b981"/>
+  <text x="1122" y="27" class="mono" font-size="11" font-weight="600" fill="#34d399">LIVE</text>
+
+  <!-- ROW 1: 6 Overview KPI Cards (matches host.json v6 row 1) -->
+  <g transform="translate(20, 62)">
+    <!-- Card 1: HTTP /health -->
+    <rect x="0" y="0" width="183" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="14" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">HTTP /health</text>
+    <text x="14" y="57" class="sans" font-size="26" font-weight="700" fill="#10b981">ĐẠT</text>
+    <text x="14" y="77" class="mono" font-size="10.5" fill="#64748b">probe_success = 1</text>
+
+    <!-- Card 2: HTTP Latency -->
+    <rect x="195" y="0" width="183" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="209" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">Độ trễ HTTP</text>
+    <text x="209" y="57" class="mono" font-size="25" font-weight="700" fill="#38bdf8">4.2 <tspan font-size="14" fill="#64748b">ms</tspan></text>
+    <text x="209" y="77" class="mono" font-size="10.5" fill="#64748b">blackbox · http_workload</text>
+
+    <!-- Card 3: CPU -->
+    <rect x="390" y="0" width="183" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="404" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">CPU (2m avg)</text>
+    <text x="404" y="55" class="mono" font-size="25" font-weight="700" fill="#f8fafc">18.4<tspan font-size="14" fill="#64748b">%</tspan></text>
+    <polyline points="404,78 424,74 444,76 464,68 484,72 504,66 524,70 558,69" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round"/>
+
+    <!-- Card 4: RAM -->
+    <rect x="585" y="0" width="183" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="599" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">RAM sử dụng</text>
+    <text x="599" y="55" class="mono" font-size="25" font-weight="700" fill="#f8fafc">41.2<tspan font-size="14" fill="#64748b">%</tspan></text>
+    <polyline points="599,74 619,73 639,72 659,74 679,71 699,72 719,70 753,71" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
+
+    <!-- Card 5: Max Disk -->
+    <rect x="780" y="0" width="183" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="794" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">Disk đầy nhất</text>
+    <text x="794" y="55" class="mono" font-size="25" font-weight="700" fill="#f8fafc">34.0<tspan font-size="14" fill="#64748b">%</tspan></text>
+    <rect x="794" y="69" width="154" height="6" rx="3" fill="#1e293b"/>
+    <rect x="794" y="69" width="54" height="6" rx="3" fill="#10b981"/>
+
+    <!-- Card 6: Uptime -->
+    <rect x="975" y="0" width="185" height="90" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="989" y="22" class="sans" font-size="11.5" font-weight="500" fill="#94a3b8">Uptime</text>
+    <text x="989" y="57" class="mono" font-size="24" font-weight="700" fill="#f8fafc">14d 06h</text>
+    <text x="989" y="77" class="mono" font-size="10.5" fill="#64748b">node_boot_time_seconds</text>
+  </g>
+
+  <!-- ROW 2: Left Chart + Right PostgreSQL Incident Table -->
+  <!-- Left Panel: CPU & RAM Time-Series -->
+  <g transform="translate(20, 168)">
+    <rect x="0" y="0" width="664" height="218" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="16" y="26" class="sans" font-size="13" font-weight="600" fill="#e2e8f0">Host Telemetry · CPU (2m) &amp; Memory</text>
+    <circle cx="520" cy="22" r="3.5" fill="#10b981"/>
+    <text x="530" y="26" class="mono" font-size="10.5" fill="#94a3b8">CPU</text>
+    <circle cx="574" cy="22" r="3.5" fill="#38bdf8"/>
+    <text x="584" y="26" class="mono" font-size="10.5" fill="#94a3b8">RAM</text>
+    <line x1="16" y1="38" x2="648" y2="38" stroke="#1e293b"/>
+
+    <!-- Y-axis & Horizontal Grid -->
+    <g class="mono" font-size="10" fill="#64748b">
+      <text x="16" y="60">100%</text>
+      <line x1="54" y1="56" x2="648" y2="56" stroke="#1e293b" stroke-width="1"/>
+
+      <!-- 85% Alert Threshold Line -->
+      <text x="16" y="81" fill="#fb7185">85%</text>
+      <line x1="54" y1="77" x2="648" y2="77" stroke="#f43f5e" stroke-opacity="0.7" stroke-dasharray="5 4" stroke-width="1.2"/>
+      <rect x="498" y="63" width="144" height="17" rx="3" fill="#4c0519" fill-opacity="0.85"/>
+      <text x="506" y="75" fill="#fda4af" font-size="9.5">HostHighCpu &gt; 85% (3m)</text>
+
+      <text x="22" y="128">50%</text>
+      <line x1="54" y1="124" x2="648" y2="124" stroke="#1e293b" stroke-dasharray="2 4" stroke-width="1"/>
+
+      <text x="28" y="192">0%</text>
+      <line x1="54" y1="188" x2="648" y2="188" stroke="#1e293b" stroke-width="1"/>
+    </g>
+
+    <!-- Memory Curve (~41%) -->
+    <path d="M54,136 C120,135 180,132 240,134 C300,136 360,131 420,130 C480,129 560,132 648,131 L648,188 L54,188 Z" fill="url(#memArea)"/>
+    <path d="M54,136 C120,135 180,132 240,134 C300,136 360,131 420,130 C480,129 560,132 648,131" fill="none" stroke="#38bdf8" stroke-width="2" class="draw-mem"/>
+
+    <!-- CPU Curve (~18% with brief filtered spike to 68%) -->
+    <path d="M54,166 C110,165 150,162 200,165 C240,167 270,158 300,104 C318,74 334,148 366,162 C420,166 520,161 648,163 L648,188 L54,188 Z" fill="url(#cpuArea)"/>
+    <path d="M54,166 C110,165 150,162 200,165 C240,167 270,158 300,104 C318,74 334,148 366,162 C420,166 520,161 648,163" fill="none" stroke="#10b981" stroke-width="2.2" class="draw-cpu"/>
+
+    <!-- Annotation for filtered short spike -->
+    <circle cx="316" cy="95" r="3.5" fill="#fbbf24"/>
+    <text x="328" y="99" class="mono" font-size="9.5" fill="#fbbf24">30s spike filtered (for: 3m)</text>
+
+    <!-- X-Axis Time Labels -->
+    <g class="mono" font-size="10" fill="#64748b">
+      <text x="54" y="205">00:20</text>
+      <text x="195" y="205">00:35</text>
+      <text x="340" y="205">00:50</text>
+      <text x="485" y="205">01:05</text>
+      <text x="616" y="205">01:20</text>
+    </g>
+  </g>
+
+  <!-- Right Panel: PostgreSQL 16 Incident History -->
+  <g transform="translate(700, 168)">
+    <rect x="0" y="0" width="480" height="218" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <text x="16" y="26" class="sans" font-size="13" font-weight="600" fill="#e2e8f0">Incident History · PostgreSQL 16</text>
+    <text x="464" y="26" text-anchor="end" class="mono" font-size="10.5" fill="#38bdf8">episodes table</text>
+    <line x1="16" y1="38" x2="464" y2="38" stroke="#1e293b"/>
+
+    <!-- Column Headers -->
+    <g class="mono" font-size="10" fill="#64748b">
+      <text x="16" y="56">ALERTNAME</text>
+      <text x="214" y="56">SEVERITY</text>
+      <text x="308" y="56">STATUS</text>
+      <text x="464" y="56" text-anchor="end">DURATION</text>
+    </g>
+    <line x1="16" y1="64" x2="464" y2="64" stroke="#1e293b" stroke-opacity="0.7"/>
+
+    <!-- Row 1 -->
+    <g class="row-1" transform="translate(0, 86)">
+      <text x="16" y="0" class="mono" font-size="11.5" fill="#f1f5f9">ServiceHttpDown</text>
+      <rect x="212" y="-12" width="66" height="17" rx="4" fill="#4c0519" stroke="#f43f5e" stroke-opacity="0.4"/>
+      <text x="245" y="0" text-anchor="middle" class="mono" font-size="10" fill="#fda4af">critical</text>
+      <circle cx="314" cy="-4" r="3" fill="#10b981"/>
+      <text x="324" y="0" class="mono" font-size="11" fill="#34d399">resolved</text>
+      <text x="464" y="0" text-anchor="end" class="mono" font-size="11" fill="#cbd5e1">00:02:15</text>
+    </g>
+
+    <!-- Row 2 -->
+    <g class="row-2" transform="translate(0, 114)">
+      <text x="16" y="0" class="mono" font-size="11.5" fill="#f1f5f9">HostHighCpu</text>
+      <rect x="212" y="-12" width="66" height="17" rx="4" fill="#451a03" stroke="#f59e0b" stroke-opacity="0.4"/>
+      <text x="245" y="0" text-anchor="middle" class="mono" font-size="10" fill="#fcd34d">warning</text>
+      <circle cx="314" cy="-4" r="3" fill="#10b981"/>
+      <text x="324" y="0" class="mono" font-size="11" fill="#34d399">resolved</text>
+      <text x="464" y="0" text-anchor="end" class="mono" font-size="11" fill="#cbd5e1">00:04:00</text>
+    </g>
+
+    <!-- Row 3 -->
+    <g class="row-3" transform="translate(0, 142)">
+      <text x="16" y="0" class="mono" font-size="11.5" fill="#f1f5f9">FilesystemAlmostFull</text>
+      <rect x="212" y="-12" width="66" height="17" rx="4" fill="#451a03" stroke="#f59e0b" stroke-opacity="0.4"/>
+      <text x="245" y="0" text-anchor="middle" class="mono" font-size="10" fill="#fcd34d">warning</text>
+      <circle cx="314" cy="-4" r="3" fill="#10b981"/>
+      <text x="324" y="0" class="mono" font-size="11" fill="#34d399">resolved</text>
+      <text x="464" y="0" text-anchor="end" class="mono" font-size="11" fill="#cbd5e1">00:03:10</text>
+    </g>
+
+    <!-- Row 4 -->
+    <g class="row-4" transform="translate(0, 170)">
+      <text x="16" y="0" class="mono" font-size="11.5" fill="#f1f5f9">ExporterDown</text>
+      <rect x="212" y="-12" width="66" height="17" rx="4" fill="#451a03" stroke="#f59e0b" stroke-opacity="0.4"/>
+      <text x="245" y="0" text-anchor="middle" class="mono" font-size="10" fill="#fcd34d">warning</text>
+      <circle cx="314" cy="-4" r="3" fill="#10b981"/>
+      <text x="324" y="0" class="mono" font-size="11" fill="#34d399">resolved</text>
+      <text x="464" y="0" text-anchor="end" class="mono" font-size="11" fill="#cbd5e1">00:01:30</text>
+    </g>
+
+    <!-- Card Footer -->
+    <line x1="16" y1="188" x2="464" y2="188" stroke="#1e293b"/>
+    <text x="16" y="206" class="mono" font-size="10" fill="#64748b">Dedup key: (fingerprint, starts_at) · Row-level FOR UPDATE</text>
+  </g>
+
+  <!-- ROW 3: Bottom Architecture & Verification Strip -->
+  <g transform="translate(20, 402)">
+    <rect x="0" y="0" width="278" height="78" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <rect x="0" y="0" width="3" height="78" rx="1.5" fill="#38bdf8"/>
+    <text x="16" y="24" class="mono" font-size="10.5" font-weight="600" fill="#38bdf8">01 · INVENTORY &amp; LABELS</text>
+    <text x="16" y="46" class="sans" font-size="13" font-weight="600" fill="#f1f5f9">inventory.yml → file_sd</text>
+    <text x="16" y="64" class="mono" font-size="10.5" fill="#64748b">site · rack · team · target_id</text>
+
+    <rect x="294" y="0" width="278" height="78" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <rect x="294" y="0" width="3" height="78" rx="1.5" fill="#10b981"/>
+    <text x="310" y="24" class="mono" font-size="10.5" font-weight="600" fill="#10b981">02 · SELF-MONITORING VM1</text>
+    <text x="310" y="46" class="sans" font-size="13" font-weight="600" fill="#f1f5f9">Node · Prom · AM · Webhook</text>
+    <text x="310" y="64" class="mono" font-size="10.5" fill="#64748b">TSDB 60d / 5GB · /metrics</text>
+
+    <rect x="588" y="0" width="278" height="78" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <rect x="588" y="0" width="3" height="78" rx="1.5" fill="#a855f7"/>
+    <text x="604" y="24" class="mono" font-size="10.5" font-weight="600" fill="#c084fc">03 · INCIDENT PIPELINE</text>
+    <text x="604" y="46" class="sans" font-size="13" font-weight="600" fill="#f1f5f9">Alertmanager → Webhook → PG</text>
+    <text x="604" y="64" class="mono" font-size="10.5" fill="#64748b">Source vs Received timestamps</text>
+
+    <rect x="882" y="0" width="278" height="78" rx="8" fill="#0f1523" stroke="#1e293b"/>
+    <rect x="882" y="0" width="3" height="78" rx="1.5" fill="#10b981"/>
+    <text x="898" y="24" class="mono" font-size="10.5" font-weight="600" fill="#10b981">04 · CONTINUOUS VERIFICATION</text>
+    <text x="898" y="46" class="sans" font-size="13" font-weight="600" fill="#f1f5f9">GitHub Actions CI Gate</text>
+    <text x="898" y="64" class="mono" font-size="10.5" fill="#64748b">65 unit · promtool · amtool</text>
+  </g>
+</svg>
+
