@@ -1,61 +1,50 @@
-# Dựng và nâng cấp phần nền M0
+# Hướng dẫn dựng và nâng cấp Lab (M2a — Nền Production)
 
-Các lệnh dưới đây chạy trong Linux guest, tại thư mục gốc repository.
-Docker Engine, Compose và Python 3 phải có sẵn. Docker chạy trong mỗi VM.
-Đây là hướng dẫn cho phần nền hiện có; Alertmanager, Webhook, cAdvisor và
-podinfo được bổ sung theo [kế hoạch](project-plan.md), chưa nằm trong stack này.
+Các lệnh dưới đây chạy bên trong Linux guest (`VM1` và `VM2`), tại thư mục gốc của repository. Yêu cầu mỗi VM đã cài sẵn **Docker Engine**, **Docker Compose plugin** và **Python 3**.
 
-## Lab cá nhân và lab tích hợp
+## 1. Cấu hình `.env` và `inventory.yml`
 
-- Lab cá nhân: VM1 Monitoring và VM2 Workload.
-- Lab tích hợp: thêm VM3 Workload ở M3, dùng lại `workload/compose.yaml`.
-- Cùng repository nhưng IP, tài khoản và dữ liệu riêng. Docker DNS chỉ phân
-  giải service trong cùng Docker network; giữa các VM dùng địa chỉ mạng lab.
-
-## Cấu hình mỗi lab
-
-Nếu chưa có `.env`, tạo từ mẫu; không ghi đè file đã có:
+Tạo file cấu hình cục bộ từ file mẫu (không ghi đè nếu đã có `.env` đang dùng):
 
 ```bash
 test -f .env || cp .env.example .env
-nano .env
+test -f inventory.yml || cp inventory.example.yml inventory.yml
 ```
 
-Điền `WORKLOAD_IP`, `WORKLOAD_HOST`, `WORKLOAD_HTTP_PORT`,
-`WORKLOAD_CADVISOR_PORT` và `ENVIRONMENT`. VM1 dùng các biến này để sinh
-target; VM2 dùng HTTP port để publish Nginx và cAdvisor port (mặc định 8081)
-để publish cAdvisor.
-Giữ `WORKLOAD_VM3_IP` rỗng cho lab hai VM. Điền IP/host/port của VM3 sau khi
-đã dựng VM3 ở lab tích hợp. Không điền địa chỉ VM của người khác.
+Cả `.env` và `inventory.yml` đều đã nằm trong `.gitignore` — **tuyệt đối không commit IP thật hoặc mật khẩu lên Git**.
 
-`PROMETHEUS_IP` và `WEBHOOK_PORT` trong mẫu cũ không còn dùng. Datasource
-Grafana truy cập `http://prometheus:9090` nội bộ; Webhook tương lai cũng chỉ
-nhận nội bộ. Các khóa cũ trong `.env` có thể bỏ sau khi đối chiếu, không
-copy đè mật khẩu hoặc giá trị đang dùng.
+1. **Trong `.env` (trên cả `VM1` và `VM2`):**
+   - Điền `WORKLOAD_IP` (IP thực của `VM2`), `WORKLOAD_HOST=workload-vm2`, `WORKLOAD_HTTP_PORT=8080`, `WORKLOAD_CADVISOR_PORT=8081`.
+   - Trên `VM1`, đặt mật khẩu thật cho Grafana và PostgreSQL 16:
+     ```dotenv
+     GF_SECURITY_ADMIN_USER=admin
+     GF_SECURITY_ADMIN_PASSWORD=<mật_khẩu_mạnh_grafana>
+     POSTGRES_DB=moni_history
+     POSTGRES_USER=moni
+     POSTGRES_PASSWORD=<mật_khẩu_mạnh_postgres>
+     ```
+2. **Trong `inventory.yml` (trên `VM1`):**
+   - Thay `address: CHANGE_ME` của `workload-vm2` bằng IP thực của `VM2`.
 
-Compose không tự thay nội dung file `prometheus.yml`. Script sau đọc `.env`
-và sinh hai file JSON file_sd được Prometheus mount đọc. Không truy cập VM,
-không khởi tạo VM và không khởi chạy container:
+---
+
+## 2. Sinh danh sách target cho Prometheus trên `VM1`
+
+Chạy script sinh `file_sd` và recording rules `expected.rules.yml` trước khi bật Prometheus:
 
 ```bash
-python3 scripts/render_targets.py
+# Khuyến nghị (dùng inventory.yml theo ADR-04.1):
+python3 scripts/render_targets.py --inventory-file inventory.yml
+
+# Hoặc chế độ tương thích ngược đọc trực tiếp từ .env:
+python3 scripts/render_targets.py --env-file .env
 ```
 
-Đầu ra: `.runtime/prometheus/targets/node.json`, `http.json` và
-`expected.rules.yml`, ngoài Git. Script kiểm tra IP, port và host trùng trước
-khi thay file; thư mục này không chứa secret. Chạy lại sau khi đổi inventory.
-Khi config nền đã được nạp, file_sd đọc lại target theo chu kỳ 15 giây mà
-không cần recreate. `expected.rules.yml` là inventory kỳ vọng cho cảnh báo
-`TargetMissing` (ALT-10); rule chỉ nạp lại khi Prometheus nhận SIGHUP:
-`docker compose -f monitoring/compose.yaml kill -s HUP prometheus`.
+Đầu ra tạo nguyên tử tại `.runtime/prometheus/targets/` gồm `node.json`, `http.json`, `cadvisor.json` (kèm bộ nhãn chuẩn `environment`, `site`, `rack`, `team`, `host`, `target_id`) và `expected.rules.yml`.
 
-`prometheus.yml` được bind mount như một file riêng. `git pull` hoặc
-`git apply` thay file bằng inode mới nên SIGHUP vẫn đọc nội dung cũ. Sau khi
-`prometheus.yml` thay đổi, tạo lại container (dữ liệu nằm trong volume):
-`docker compose -f monitoring/compose.yaml up -d --force-recreate prometheus`.
-Thư mục `rules/` và `targets/` được mount cả thư mục nên SIGHUP là đủ.
+---
 
-## VM2 — Workload
+## 3. Khởi chạy `VM2` — Workload
 
 ```bash
 sudo docker compose --env-file .env -f workload/compose.yaml config -q
@@ -63,68 +52,73 @@ sudo docker compose --env-file .env -f workload/compose.yaml up -d
 sudo docker compose --env-file .env -f workload/compose.yaml ps
 ```
 
-`config -q` kiểm tra Compose; `up -d` áp dụng stack; `ps` xem container.
+> **Lưu ý tường lửa (`ufw`) trên `VM2`:** nếu `VM2` bật `ufw`, cần cho phép IP của `VM1` truy cập cổng `8080` (Nginx), `9100` (Node Exporter), `8081` (cAdvisor) — và thêm cổng `9898` khi triển khai `podinfo` ở `M2b` (`#89` / `#90`).
 
-cAdvisor (`ghcr.io/google/cadvisor:0.55.1`) chạy `privileged` và mount chỉ
-đọc `/`, `/sys`, `/var/run`, `/var/lib/docker`, `/dev/disk` để đọc cgroup và
-thông tin container Docker; thêm `/dev/kmsg` để thấy sự kiện OOM. Quyền này
-đọc được mọi container trên host nên chỉ dùng trên VM lab. Port 8081 của VM2
-chỉ cần mở cho VM1.
-Không xóa named volume hoặc làm đầy phân vùng hệ thống để thử lỗi.
+---
 
-## VM1 — Monitoring
-
-Render trước khi chạy Compose. Bind mount đặt `create_host_path: false`
-để không tự tạo một thư mục rỗng rồi chạy giám sát thiếu inventory.
+## 4. Khởi chạy `VM1` — Monitoring Stack
 
 ```bash
-python3 scripts/render_targets.py
+python3 scripts/render_targets.py --inventory-file inventory.yml
 sudo docker compose --env-file .env -f monitoring/compose.yaml config -q
-sudo docker compose --env-file .env -f monitoring/compose.yaml run --rm --no-deps --entrypoint /bin/promtool prometheus check config /etc/prometheus/prometheus.yml
-sudo docker compose --env-file .env -f monitoring/compose.yaml up -d
+
+# Kiểm tra cú pháp cấu hình Prometheus trước khi chạy
+sudo docker compose --env-file .env -f monitoring/compose.yaml run --rm --no-deps \
+  --entrypoint /bin/promtool prometheus check config /etc/prometheus/prometheus.yml
+
+# Build image webhook (có psycopg cho PostgreSQL 16) và khởi chạy toàn bộ stack
+sudo docker compose --env-file .env -f monitoring/compose.yaml up -d --build
 sudo docker compose --env-file .env -f monitoring/compose.yaml ps
-curl --fail --show-error http://localhost:9090/-/ready
 ```
 
-`promtool` kiểm tra config và rules với đúng đường dẫn mount trước khi áp dụng.
-`ready` kiểm tra Prometheus sẵn sàng, chưa chứng minh target hoặc cảnh báo đạt.
-Đổi URL local nếu đã đổi port/bind trong `.env`. Các port publish giữ mặc
-định lab cũ; giới hạn firewall/quyền truy cập là SEC-01, chưa được kiểm chứng.
+---
 
-## Nâng cấp job và dashboard từ phiên bản cũ
+## 5. Quy trình nâng cấp `VM1` từ bản cũ (M0/M1) lên M2a
 
-Ghi commit đang chạy, sao lưu cấu hình và `.env` trước khi đổi phiên bản.
-Recreate Prometheus bằng `up -d` để nạp job mới; không dùng `down -v`.
-Grafana provisioning sẽ đọc lại dashboard Host trong chu kỳ cấu hình.
+> [!IMPORTANT]
+> **Hai bẫy bắt buộc tránh khi `git pull` nhánh `main` mới lên `VM1` đang chạy bản cũ:**
+> 1. **Phải chạy lại `render_targets.py` trước khi reload Prometheus:** Luật `TargetMissing` mới đối chiếu theo `(job, host, target_id)`. Nếu giữ file `expected.rules.yml` cũ chưa có nhãn `target_id`, Prometheus sẽ báo `TargetMissing` hàng loạt.
+> 2. **Phải có cờ `--build` và `--force-recreate prometheus`:**
+>    - `--build` để Docker build lại image `moni-webhook:local` cài thư viện `psycopg` kết nối `postgres:16-alpine` (nếu thiếu `--build`, container `webhook` cũ sẽ lỗi thiếu module).
+>    - `--force-recreate prometheus` vì `prometheus.yml` được bind mount theo file đơn lẻ (`git pull` tạo inode mới nên chỉ gửi `SIGHUP` sẽ vẫn đọc nội dung cũ). Tuyệt đối **không** dùng `down -v` để tránh xóa dữ liệu volume.
 
-- `node-vm2` đổi thành `node`, `http-vm2` đổi thành `http`.
-- Mỗi target có `host` và `environment`; HTTP thêm `service`.
-- Dashboard mới tên Host, chọn một host qua biến `host`; giữ UID `moni-vm2`
-  để các URL dashboard cũ còn dùng được.
-- Chuỗi thời gian job cũ vẫn nằm trong retention nhưng không tự đổi nhãn.
-  Khi nghiệm thu dùng khoảng thời gian sau nâng cấp; sửa query/script riêng
-  còn tham chiếu job cũ và lưu commit trước/sau.
-- Đổi job/nhãn làm thay định danh alert và có thể bắt đầu lại thời gian `for`.
-  Một resolved do thay config/mất dữ liệu không chứng minh dịch vụ phục hồi.
+Chạy đúng chuỗi lệnh nâng cấp sau trên `VM1`:
 
-Trên Prometheus chạy lần lượt, thay host bằng nhãn đã điền:
+```bash
+git pull origin main
 
-```promql
-up{job="node",host="workload-vm2"}
-up{job="http",host="workload-vm2"}
-probe_success{job="http",host="workload-vm2"}
+# 1. Bổ sung các biến mới (GF_SECURITY_*, POSTGRES_*) từ .env.example vào .env nếu chưa có
+nano .env
+
+# 2. Sinh lại targets và expected.rules.yml có target_id mới
+python3 scripts/render_targets.py --inventory-file inventory.yml
+
+# 3. Build lại webhook, nạp postgres:16-alpine, node-exporter VM1 và recreate prometheus
+sudo docker compose --env-file .env -f monitoring/compose.yaml up -d --build --force-recreate prometheus
 ```
 
-Khi dừng Nginx: kỳ vọng probe=0, scrape HTTP=1, node=1. Khi bật lại,
-probe=1 mới là tín hiệu HTTP phục hồi. Không có dữ liệu là chưa xác định.
-Rule `ServiceHttpDown` vẫn chờ `for: 1m`; Alertmanager/lịch sử chưa có trong
-bản nền, nên lượt này chỉ kiểm chứng metric/rule. Minh chứng toàn luồng ở M1.
+---
 
-## Kiểm tra mã nguồn
+## 6. Kiểm tra nhanh sau khi lên Stack
+
+```bash
+# 1. Prometheus sẵn sàng
+curl --fail --show-error http://127.0.0.1:9090/-/ready
+
+# 2. Webhook khỏe và kết nối thành công tới PostgreSQL 16
+sudo docker compose --env-file .env -f monitoring/compose.yaml exec webhook \
+  python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8080/health').read().decode())"
+
+# 3. Xem bảng lịch sử sự cố từ PostgreSQL 16 (giờ UTC+7)
+sudo docker compose --env-file .env -f monitoring/compose.yaml exec webhook \
+  python history.py episodes --limit 10
+```
+
+Trên giao diện Prometheus (`http://<VM1_IP>:9090/targets`), xác nhận các job `prometheus`, `alertmanager`, `webhook`, `blackbox-exporter`, `node` (gồm cả `monitoring-vm1` và `workload-vm2`), `cadvisor` và `http` đều ở trạng thái **`UP`**.
+
+## 7. Chạy bộ kiểm thử tự động trong mã nguồn
 
 ```bash
 python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s monitoring/webhook/tests -v
 ```
-
-Test renderer kiểm tra lab hai workload, inventory sai và giữ target cũ khi
-input không hợp lệ. Các fixture dùng địa chỉ tài liệu, không gọi lab thật.
